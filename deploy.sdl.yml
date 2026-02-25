@@ -1,0 +1,50 @@
+---
+version: "2.0"
+
+services:
+  healthguard:
+    image: karthiksai109/healthguard:latest
+    env:
+      - VENICE_API_KEY=
+      - AKASHML_API_KEY=
+      - TELEGRAM_BOT_TOKEN=
+      - TELEGRAM_CHAT_ID=
+      - DATA_DIR=/data
+      - PORT=8080
+      - AGENT_INTERVAL=60
+      - RAW_FILE_TTL=60
+      - ENCRYPTION_SALT=healthguard_akash_prod_salt
+      - DEMO_MODE=true
+    expose:
+      - port: 8080
+        as: 80
+        to:
+          - global: true
+
+profiles:
+  compute:
+    healthguard:
+      resources:
+        cpu:
+          units: 4
+        memory:
+          size: 8Gi
+        storage:
+          - size: 10Gi
+            attributes:
+              persistent: true
+              class: beta3
+            name: data
+
+  placement:
+    dcloud:
+      pricing:
+        healthguard:
+          denom: uakt
+          amount: 1000
+
+deployment:
+  healthguard:
+    dcloud:
+      profile: healthguard
+      count: 1
