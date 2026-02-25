@@ -42,20 +42,36 @@ def venice_stt(config: AppConfig, audio_bytes: bytes) -> str:
 
 # ── Venice Vision — Image Analysis (Qwen2.5-VL 235B) ────────────────
 
-VISION_SCHEMA_PROMPT = """You are a medical image analysis AI. Analyze this patient-submitted health image.
+VISION_SCHEMA_PROMPT = """You are an expert medical image analysis AI with clinical decision support capability.
+Analyze this patient-submitted health image thoroughly. Look carefully at the ACTUAL image content.
+Describe exactly what you see — colors, textures, patterns, size estimates, location on body if visible.
 Return ONLY a JSON object with exactly these fields:
 {
-  "image_type": "wound|skin|medication|document|other",
-  "observations": "detailed clinical observations",
-  "healing_stage": "early|mid|late|healed|worsening|N/A",
+  "image_type": "wound|burn|rash|bruise|skin_lesion|fracture_swelling|eye|medication|device_screen|other",
+  "observations": "Very detailed clinical observations of what you actually see in the image",
+  "severity": "mild|moderate|severe|critical|unknown",
+  "healing_stage": "early|mid|late|healed|worsening|infected|N/A",
   "redness": "none|mild|moderate|severe",
   "swelling": "none|mild|moderate|severe",
-  "discharge": "none|clear|yellow|bloody",
+  "discharge": "none|clear|yellow|green|bloody|purulent",
+  "infection_risk": "low|moderate|high",
   "confidence": 0.0 to 1.0,
-  "concerns": "any concerning findings or empty string",
-  "recommendation": "clinical recommendation"
+  "primary_concern": "The single most important clinical finding",
+  "differential_assessment": ["possible condition 1", "possible condition 2"],
+  "immediate_actions": ["what patient should do RIGHT NOW"],
+  "medication_suggestions": [
+    {"name": "medication name", "purpose": "why", "dosage_note": "general guidance", "otc": true}
+  ],
+  "precautions": ["precaution 1", "precaution 2"],
+  "requires_doctor": true,
+  "doctor_urgency": "not_needed|within_week|within_24h|within_6h|immediately|call_911",
+  "scans_recommended": ["X-ray|MRI|CT|ultrasound|blood_work|culture_swab|none"],
+  "home_care": ["home care instruction 1", "home care instruction 2"],
+  "warning_signs": ["seek immediate help if you notice..."],
+  "follow_up": "when and how to follow up",
+  "patient_summary": "A simple 2-3 sentence summary in plain language the patient can understand"
 }
-Be precise and clinical. This analysis will be combined with vitals history for decision-making."""
+Be thorough and precise. Describe EXACTLY what you see, not generic observations."""
 
 
 def venice_vision(config: AppConfig, client: OpenAI, image_bytes: bytes) -> dict:
@@ -77,7 +93,7 @@ def venice_vision(config: AppConfig, client: OpenAI, image_bytes: bytes) -> dict
                     ],
                 },
             ],
-            max_tokens=800,
+            max_tokens=1500,
             temperature=0.1,
         )
         raw = resp.choices[0].message.content.strip()
@@ -95,6 +111,78 @@ def venice_vision(config: AppConfig, client: OpenAI, image_bytes: bytes) -> dict
     except Exception as e:
         logger.error("venice_vision_fail", error=str(e))
         return {"observations": "vision analysis failed", "confidence": 0.0, "error": str(e)}
+
+
+# ── AkashML — Clinical Triage from Vision Analysis ────────────────────
+
+CLINICAL_TRIAGE_PROMPT = """You are a senior emergency medicine physician and clinical decision support AI.
+Given a vision analysis of a patient's photo combined with their vitals and symptom history, provide a comprehensive clinical triage.
+Return ONLY a JSON object:
+{
+  "emergency_level": "green_self_care|yellow_see_doctor|orange_urgent_care|red_emergency",
+  "emergency_explanation": "why this emergency level",
+  "diagnosis_assessment": {
+    "most_likely": "most probable diagnosis",
+    "differential": ["diagnosis 1", "diagnosis 2"],
+    "confidence": 0.0 to 1.0
+  },
+  "treatment_plan": [
+    {"step": 1, "action": "what to do", "detail": "how to do it", "timeframe": "when"}
+  ],
+  "medications": [
+    {"name": "drug name", "type": "OTC|prescription", "dosage": "recommended dosage", "duration": "how long", "warnings": "important warnings"}
+  ],
+  "do_not_do": ["things the patient should NOT do"],
+  "scans_and_tests": [
+    {"test": "test name", "reason": "why needed", "urgency": "routine|soon|urgent"}
+  ],
+  "specialist_referral": {"needed": true, "specialty": "which doctor", "timeframe": "when"},
+  "doctor_notification": {
+    "notify_now": true,
+    "reason": "why the doctor needs to be notified",
+    "key_findings": "what to tell the doctor"
+  },
+  "home_care_plan": ["detailed home care step 1", "step 2"],
+  "red_flags": ["go to ER immediately if you see..."],
+  "next_check": "when patient should re-assess or upload another photo",
+  "patient_message": "A warm, clear 3-4 sentence message to the patient explaining their situation and what to do next"
+}
+Be specific and actionable. If mild, reassure and suggest OTC remedies. If serious, be direct about urgency."""
+
+
+def akashml_clinical_triage(client: OpenAI, model: str, vision_result: dict, patient_context: str = "", patient_note: str = "") -> dict:
+    """Full clinical triage combining vision analysis with patient history.
+    AkashML receives: structured vision JSON + anonymized vitals. Never raw images.
+    """
+    try:
+        content = f"Image Analysis Results:\n{json.dumps(vision_result, indent=2)}"
+        if patient_context:
+            content += f"\n\nPatient History:\n{patient_context}"
+        if patient_note:
+            content += f"\n\nPatient's Note: {patient_note}"
+        resp = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": CLINICAL_TRIAGE_PROMPT},
+                {"role": "user", "content": content},
+            ],
+            max_tokens=1500,
+            temperature=0.2,
+        )
+        raw = resp.choices[0].message.content.strip()
+        if "```" in raw:
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+        result = json.loads(raw)
+        logger.info("akashml_clinical_triage_ok", emergency=result.get("emergency_level"), notify=result.get("doctor_notification", {}).get("notify_now"))
+        return result
+    except json.JSONDecodeError:
+        logger.warning("akashml_clinical_triage_json_fail", raw=raw[:200] if raw else "")
+        return {"emergency_level": "yellow_see_doctor", "patient_message": "We analyzed your image but couldn't fully process the results. Please consult a healthcare provider.", "error": "json_parse"}
+    except Exception as e:
+        logger.error("akashml_clinical_triage_fail", error=str(e))
+        return {"emergency_level": "yellow_see_doctor", "patient_message": "Analysis encountered an error. Please consult a healthcare provider.", "error": str(e)}
 
 
 # ── Venice TTS — Text to Speech (Kokoro) ─────────────────────────────

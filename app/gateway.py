@@ -134,6 +134,85 @@ async def record_vital(
     return {"status": "recorded", "vital_id": vid, "metric": metric_type, "value": value}
 
 
+# ── Instant Photo Analysis — Real-time Venice Vision + AkashML Triage ──
+
+@app.post("/analyze-photo")
+async def analyze_photo(
+    file: UploadFile = File(...),
+    patient_id: str = Form(...),
+    note: str = Form(""),
+):
+    """INSTANT image analysis. Venice Vision analyzes the actual image, then AkashML
+    provides full clinical triage. Image is NEVER stored — deleted from memory immediately.
+    """
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(400, "File must be an image")
+    raw = await file.read()
+    if len(raw) > 10 * 1024 * 1024:
+        raise HTTPException(400, "File too large (max 10MB)")
+
+    clean_bytes = ingestion.strip_exif(raw)
+
+    # Step 1: Venice Vision — analyze the actual image (zero retention)
+    vision_result = inference.venice_vision(_config, _agent.venice, clean_bytes)
+    _agent.venice_endpoints_used.add("vision")
+    _agent.stats["venice_calls"] += 1
+
+    # Step 2: Load patient context for AkashML
+    patient_context = ""
+    patient = _db.get_patient(patient_id)
+    if patient:
+        context = _agent.memory.load_context(patient_id)
+        patient_context = _agent.memory.format_for_ai(context)
+
+    # Step 3: AkashML Clinical Triage — full treatment plan
+    triage = inference.akashml_clinical_triage(
+        _agent.akashml, _config.akashml.primary_model,
+        vision_result, patient_context, note,
+    )
+    _agent.stats["akashml_calls"] += 1
+
+    # Step 4: Log (structured text only — no image stored)
+    sev_map = {"green_self_care": "normal", "yellow_see_doctor": "monitor", "orange_urgent_care": "alert", "red_emergency": "escalate"}
+    decision_str = sev_map.get(triage.get("emergency_level", ""), "monitor")
+    _db.record_log(
+        patient_id=patient_id, session_id=f"instant_{int(time.time())}",
+        input_type="photo", summary=f"Vision: {vision_result.get('observations', '')[:300]}",
+        decision=decision_str,
+        reason=triage.get("emergency_explanation", vision_result.get("patient_summary", ""))[:300],
+        action_taken="instant_analysis",
+        model_used=_config.akashml.primary_model,
+        anomaly_score=triage.get("diagnosis_assessment", {}).get("confidence", 0.5),
+    )
+
+    # Step 5: If serious, trigger doctor notification
+    doctor_notified = False
+    if triage.get("emergency_level") in ("orange_urgent_care", "red_emergency"):
+        notify = triage.get("doctor_notification", {})
+        alert_msg = f"URGENT: {notify.get('reason', 'Serious condition detected')} — {notify.get('key_findings', '')}"
+        _db.record_alert(patient_id, alert_msg, severity=1 if triage["emergency_level"] == "red_emergency" else 2, action_taken="doctor_notified,instant_analysis")
+        doctor_notified = True
+
+    _db.audit({
+        "type": "instant_photo_analysis",
+        "patient_id": patient_id[:8] + "...",
+        "emergency_level": triage.get("emergency_level"),
+        "doctor_notified": doctor_notified,
+    })
+
+    # Image bytes are now garbage collected — never stored to disk
+    return JSONResponse({
+        "vision": vision_result,
+        "triage": triage,
+        "doctor_notified": doctor_notified,
+        "privacy": {
+            "image_stored": False,
+            "image_sent_to": "Venice AI (zero retention)",
+            "structured_output_only": True,
+        },
+    })
+
+
 # ── Read Endpoints ────────────────────────────────────────────────────
 
 @app.get("/status")

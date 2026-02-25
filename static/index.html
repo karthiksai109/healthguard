@@ -1415,64 +1415,129 @@
             }
         }
 
-        function showProcessingStates(kind, fields, noteText) {
+        function renderAnalysisResults(data) {
             const state = el('uploadState');
             const result = el('uploadResult');
-            const noteLine = noteText?.trim() ? noteText.trim() : 'No additional context provided by patient';
-            result.innerHTML = '';
-            state.textContent = `⟳ Sending to Venice ${kind}...`;
-            state.style.animation = 'fadeIn .3s ease';
-            setTimeout(() => {
-                state.textContent = `✓ Venice returned 5 fields. ${kind} deleted.`;
-                result.textContent = '⬡ AkashML reasoning...';
-            }, 500);
-            setTimeout(() => {
-                result.innerHTML = `
-          <div class="card" style="margin-top:8px">
-            <div class="badge yellow">⚠️ Watch — Monitor Closely</div>
-            <div style="margin-top:10px;color:var(--text)">
-              <strong>What we found:</strong><br/>
-              Your image shows moderate redness at an early‑mid healing stage. Your note suggests discomfort that is increasing.
-            </div>
-            <div style="margin-top:10px;color:var(--text)">
-              <strong>What happens next:</strong><br/>
-              A care review will be performed within 24 hours. We’ll notify you if action is needed.
-            </div>
-            <details style="margin-top:10px">
-              <summary class="mono" style="font-size:9px;color:#7f8bb3">Technical details ▾</summary>
-              <div class="mono" style="font-size:9px;color:#7f8bb3;margin-top:6px">${fields}</div>
-              <div class="mono" style="font-size:9px;color:#7f8bb3;margin-top:6px">patient note: "${noteLine}"</div>
-            </details>
-            <div class="state" style="margin-top:8px;text-align:center">🔒 Raw ${kind.toLowerCase()} deleted · Not stored</div>
-          </div>
-        `;
-            }, 1500);
+            const v = data.vision || {};
+            const t = data.triage || {};
+            const lvl = t.emergency_level || 'yellow_see_doctor';
+            const bMap = {green_self_care:{c:'green',i:'✅',t:'Self-Care OK'},yellow_see_doctor:{c:'yellow',i:'⚠️',t:'See a Doctor'},orange_urgent_care:{c:'red',i:'🏥',t:'Urgent Care Needed'},red_emergency:{c:'red',i:'🚨',t:'EMERGENCY'}};
+            const b = bMap[lvl] || bMap.yellow_see_doctor;
+            state.textContent = 'Analysis complete. Image deleted. Zero retention.';
+            let h = '<div class="card" style="margin-top:8px">';
+            h += '<div class="badge ' + b.c + '" style="font-size:11px;padding:6px 12px">' + b.i + ' ' + b.t + '</div>';
+            if (data.doctor_notified) h += '<div class="badge red" style="margin-top:6px;font-size:10px;padding:4px 8px">Doctor automatically notified</div>';
+            if (t.patient_message) h += '<div style="margin-top:12px;color:var(--text);font-size:13px;line-height:1.6">' + t.patient_message + '</div>';
+            h += '<div style="margin-top:14px"><strong style="color:var(--accent)">What We Found:</strong><div style="margin-top:6px;color:var(--text);font-size:12px;line-height:1.6">' + (v.observations || 'No observations') + '</div></div>';
+            if (v.primary_concern) h += '<div style="margin-top:8px;padding:8px 12px;background:#fff5f5;border:1px solid #fed7d7;border-radius:6px;font-size:12px;color:var(--red)"><strong>Primary Concern:</strong> ' + v.primary_concern + '</div>';
+            if (v.patient_summary) h += '<div style="margin-top:8px;padding:8px 12px;background:#ebf8ff;border:1px solid #bee3f8;border-radius:6px;font-size:12px;color:var(--accent)">' + v.patient_summary + '</div>';
+            var da = t.diagnosis_assessment || {};
+            if (da.most_likely) h += '<div style="margin-top:14px"><strong style="color:var(--accent)">Diagnosis:</strong><div style="margin-top:6px;font-size:14px;font-weight:700;color:var(--text)">' + da.most_likely + '</div>' + (da.confidence ? '<div style="font-size:10px;color:var(--muted)">Confidence: ' + Math.round(da.confidence * 100) + '%</div>' : '') + '</div>';
+            if (da.differential && da.differential.length) h += '<div style="margin-top:4px;font-size:11px;color:var(--muted)">Also consider: ' + da.differential.join(', ') + '</div>';
+            var allMeds = [].concat(v.medication_suggestions || [], t.medications || []);
+            if (allMeds.length) {
+                h += '<div style="margin-top:14px"><strong style="color:var(--accent)">Medications:</strong>';
+                var seen = {};
+                for (var mi = 0; mi < allMeds.length; mi++) {
+                    var m = allMeds[mi];
+                    var k = (m.name || '').toLowerCase();
+                    if (seen[k]) continue;
+                    seen[k] = true;
+                    var otc = m.otc === true || m.type === 'OTC';
+                    h += '<div style="margin-top:6px;padding:8px 12px;background:' + (otc ? '#f0fff4' : '#fff5f5') + ';border:1px solid ' + (otc ? '#c6f6d5' : '#fed7d7') + ';border-radius:6px">';
+                    h += '<div style="font-size:12px;font-weight:600;color:var(--text)">' + (m.name || '') + ' <span class="badge ' + (otc ? 'green' : 'red') + '" style="font-size:8px">' + (otc ? 'OTC' : 'Rx') + '</span></div>';
+                    if (m.purpose || m.dosage_note || m.dosage) h += '<div style="font-size:11px;color:var(--muted);margin-top:4px">' + (m.purpose ? 'For: ' + m.purpose + '. ' : '') + (m.dosage || m.dosage_note || '') + (m.duration ? ' | ' + m.duration : '') + '</div>';
+                    if (m.warnings) h += '<div style="font-size:10px;color:var(--red);margin-top:2px">Warning: ' + m.warnings + '</div>';
+                    h += '</div>';
+                }
+                h += '</div>';
+            }
+            if (t.treatment_plan && t.treatment_plan.length) {
+                h += '<div style="margin-top:14px"><strong style="color:var(--accent)">Treatment Plan:</strong>';
+                for (var si = 0; si < t.treatment_plan.length; si++) {
+                    var s = t.treatment_plan[si];
+                    h += '<div style="margin-top:6px;padding:8px 12px;border-left:3px solid var(--accent);background:#f7fafc;border-radius:0 6px 6px 0">';
+                    h += '<div style="font-size:12px;font-weight:600;color:var(--text)">Step ' + (s.step || '') + ': ' + (s.action || '') + '</div>';
+                    h += '<div style="font-size:11px;color:var(--muted)">' + (s.detail || '') + '</div>';
+                    if (s.timeframe) h += '<div style="font-size:10px;color:var(--yellow);margin-top:2px">' + s.timeframe + '</div>';
+                    h += '</div>';
+                }
+                h += '</div>';
+            }
+            var tests = [].concat(t.scans_and_tests || []);
+            var vScans = (v.scans_recommended || []).filter(function(x) { return x !== 'none'; });
+            for (var vi = 0; vi < vScans.length; vi++) {
+                var found = false;
+                for (var ti = 0; ti < tests.length; ti++) { if (tests[ti].test === vScans[vi]) found = true; }
+                if (!found) tests.push({test: vScans[vi], reason: 'Vision recommendation', urgency: 'soon'});
+            }
+            if (tests.length) {
+                h += '<div style="margin-top:14px"><strong style="color:var(--accent)">Scans & Tests:</strong>';
+                for (var xi = 0; xi < tests.length; xi++) {
+                    var tt = tests[xi];
+                    var uc = tt.urgency === 'urgent' ? 'red' : tt.urgency === 'soon' ? 'yellow' : 'green';
+                    h += '<div style="margin-top:4px;display:flex;justify-content:space-between;padding:6px 10px;background:#f7fafc;border-radius:6px;font-size:11px"><span style="font-weight:600;color:var(--text)">' + (tt.test || '') + '</span><span class="badge ' + uc + '">' + (tt.urgency || 'routine') + '</span></div>';
+                    if (tt.reason) h += '<div style="font-size:10px;color:var(--muted);padding:0 10px">' + tt.reason + '</div>';
+                }
+                h += '</div>';
+            }
+            if (t.do_not_do && t.do_not_do.length) {
+                h += '<div style="margin-top:14px"><strong style="color:var(--red)">Do NOT Do:</strong>';
+                for (var di = 0; di < t.do_not_do.length; di++) h += '<div style="margin-top:4px;padding:6px 10px;background:#fff5f5;border:1px solid #fed7d7;border-radius:6px;font-size:11px;color:var(--red)">' + t.do_not_do[di] + '</div>';
+                h += '</div>';
+            }
+            var hc = [].concat(t.home_care_plan || [], v.home_care || []);
+            if (hc.length) {
+                h += '<div style="margin-top:14px"><strong style="color:var(--green)">Home Care:</strong>';
+                for (var hi2 = 0; hi2 < hc.length; hi2++) h += '<div style="margin-top:4px;padding:6px 10px;background:#f0fff4;border:1px solid #c6f6d5;border-radius:6px;font-size:11px;color:var(--green)">' + hc[hi2] + '</div>';
+                h += '</div>';
+            }
+            var warn = [].concat(t.red_flags || [], v.warning_signs || []);
+            if (warn.length) {
+                h += '<div style="margin-top:14px"><strong style="color:var(--red)">Warning Signs:</strong>';
+                for (var wi = 0; wi < warn.length; wi++) h += '<div style="margin-top:4px;padding:6px 10px;background:#fff5f5;border:1px solid #feb2b2;border-radius:6px;font-size:11px;color:var(--red)">' + warn[wi] + '</div>';
+                h += '</div>';
+            }
+            var ref = t.specialist_referral || {};
+            if (ref.needed) h += '<div style="margin-top:10px;padding:8px 12px;background:#faf5ff;border:1px solid #e9d8fd;border-radius:6px;font-size:12px;color:#6b46c1"><strong>Specialist Referral:</strong> ' + (ref.specialty || '') + ' - ' + (ref.timeframe || 'soon') + '</div>';
+            if (t.next_check || v.follow_up) h += '<div style="margin-top:10px;font-size:12px;color:var(--muted)"><strong>Follow Up:</strong> ' + (t.next_check || '') + ' ' + (v.follow_up || '') + '</div>';
+            h += '<div style="margin-top:14px;padding:8px 12px;background:#f0fff4;border:1px solid #c6f6d5;border-radius:6px;font-size:10px;color:var(--green);text-align:center">Your photo was analyzed by Venice AI with zero data retention. The raw image was never stored. Only this text report exists.</div>';
+            h += '</div>';
+            result.innerHTML = h;
         }
+
 
         async function uploadPhoto() {
             if (!currentPatientId) return;
             const file = el('photoInput').files[0];
             if (!file) return;
-            const noteText = el('chatPrompt')?.value || '';
-            el('uploadState').textContent = '⟳ Sending to Venice Vision...';
+            const noteText = el('chatPrompt') ? el('chatPrompt').value : '';
+            el('uploadState').textContent = 'Analyzing with Venice Vision AI + AkashML...';
+            el('uploadResult').innerHTML = '';
+            el('photoAnalyzeBtn').disabled = true;
             const fd = new FormData();
             fd.append('file', file);
             fd.append('patient_id', currentPatientId);
-            fd.append('patient_note', noteText);
+            fd.append('note', noteText);
             try {
                 const detected = detectDeviceType(noteText);
                 if (detected) {
                     const reading = detected === 'bp_monitor' ? '120/80' : '142';
                     const unit = detected === 'bp_monitor' ? 'mmHg' : 'mg/dL';
                     renderDeviceResult(reading, unit, detected);
+                    el('photoAnalyzeBtn').disabled = false;
                     return;
                 }
-                await fetch('/upload-photo', { method: 'POST', body: fd });
-                showProcessingStates('Photo', 'healing_stage: mid · redness: moderate · swelling: mild · discharge: none · confidence: 0.84', noteText);
+                const resp = await fetch('/analyze-photo', { method: 'POST', body: fd });
+                const data = await resp.json();
+                renderAnalysisResults(data);
             } catch (e) {
-                el('uploadState').textContent = 'Agent unreachable';
+                el('uploadState').textContent = 'Analysis failed. Please try again.';
+                el('uploadResult').innerHTML = '<div class="badge red" style="margin-top:8px">Error: ' + (e.message || e) + '</div>';
             }
+            el('photoAnalyzeBtn').disabled = false;
         }
+
 
         async function postVital(metricType, value, unit) {
             const fd = new FormData();
