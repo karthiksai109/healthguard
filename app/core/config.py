@@ -16,7 +16,7 @@ class VeniceConfig(BaseModel):
     api_key: str = os.getenv("VENICE_API_KEY", "")
     base_url: str = os.getenv("VENICE_BASE_URL", "https://api.venice.ai/api/v1")
     chat_model: str = os.getenv("VENICE_CHAT_MODEL", "venice-uncensored")
-    vision_model: str = os.getenv("VENICE_VISION_MODEL", "qwen-2.5-vl")
+    vision_model: str = os.getenv("VENICE_VISION_MODEL", "qwen3-vl-235b-a22b")
     image_model: str = os.getenv("VENICE_IMAGE_MODEL", "fluently-xl")
     audio_model: str = os.getenv("VENICE_AUDIO_MODEL", "tts-kokoro")
     stt_model: str = os.getenv("VENICE_STT_MODEL", "whisper-large-v3")

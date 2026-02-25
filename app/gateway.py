@@ -190,7 +190,8 @@ async def analyze_photo(
     if triage.get("emergency_level") in ("orange_urgent_care", "red_emergency"):
         notify = triage.get("doctor_notification", {})
         alert_msg = f"URGENT: {notify.get('reason', 'Serious condition detected')} — {notify.get('key_findings', '')}"
-        _db.record_alert(patient_id, alert_msg, severity=1 if triage["emergency_level"] == "red_emergency" else 2, action_taken="doctor_notified,instant_analysis")
+        sev = 1 if triage["emergency_level"] == "red_emergency" else 2
+        _db.record_alert(patient_id, sev, alert_msg, action_taken="doctor_notified,instant_analysis")
         doctor_notified = True
 
     _db.audit({

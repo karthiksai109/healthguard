@@ -81,6 +81,14 @@ def venice_vision(config: AppConfig, client: OpenAI, image_bytes: bytes) -> dict
     """
     try:
         b64 = base64.b64encode(image_bytes).decode("utf-8")
+        # Auto-detect MIME type from magic bytes
+        mime = "image/jpeg"
+        if image_bytes[:8] == b'\x89PNG\r\n\x1a\n':
+            mime = "image/png"
+        elif image_bytes[:4] == b'GIF8':
+            mime = "image/gif"
+        elif image_bytes[:4] == b'RIFF' and image_bytes[8:12] == b'WEBP':
+            mime = "image/webp"
         resp = client.chat.completions.create(
             model=config.venice.vision_model,
             messages=[
@@ -88,7 +96,7 @@ def venice_vision(config: AppConfig, client: OpenAI, image_bytes: bytes) -> dict
                 {
                     "role": "user",
                     "content": [
-                        {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{b64}"}},
+                        {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}},
                         {"type": "text", "text": "Analyze this health image. Return JSON only."},
                     ],
                 },
