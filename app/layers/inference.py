@@ -316,6 +316,103 @@ def akashml_loop_decision(client: OpenAI, model: str, context: str) -> dict:
 
 # ── AkashML — Weekly Summary ─────────────────────────────────────────
 
+DOCTOR_REPORT_PROMPT = """You are a senior clinical decision support AI. Generate a comprehensive doctor's report.
+Given the patient's vitals history, symptoms, alerts, and analysis logs, produce a detailed clinical report.
+Return ONLY a JSON object:
+{
+  "risk_assessment": {
+    "overall_risk": "low|moderate|high|critical",
+    "risk_factors": ["factor1", "factor2"],
+    "risk_score": 0.0 to 1.0
+  },
+  "treatment_recommendations": [
+    {"priority": 1, "recommendation": "text", "rationale": "why", "urgency": "immediate|24h|this_week|routine"}
+  ],
+  "medication_review": {
+    "current_concerns": ["concern1"],
+    "interactions_flagged": ["interaction1"],
+    "dosage_notes": "any dosage observations"
+  },
+  "follow_up_plan": {
+    "next_visit": "timeframe",
+    "monitoring_frequency": "how often to check vitals",
+    "tests_recommended": ["test1", "test2"],
+    "specialist_referral": "if needed, which specialty"
+  },
+  "patient_education": ["key point for patient to understand"],
+  "clinical_summary": "2-3 sentence executive summary for the doctor",
+  "differential_diagnosis": ["possible diagnosis 1", "possible diagnosis 2"]
+}
+Be evidence-based. Flag any dangerous patterns. Prioritize patient safety."""
+
+
+def akashml_doctor_report(client: OpenAI, model: str, patient_context: str) -> dict:
+    """Generate comprehensive doctor report using AkashML.
+    Input: anonymized patient context (vitals + logs + alerts). No PHI.
+    """
+    try:
+        resp = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": DOCTOR_REPORT_PROMPT},
+                {"role": "user", "content": patient_context},
+            ],
+            max_tokens=1200,
+            temperature=0.2,
+        )
+        raw = resp.choices[0].message.content.strip()
+        if "```" in raw:
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+        result = json.loads(raw)
+        logger.info("akashml_doctor_report_ok", risk=result.get("risk_assessment", {}).get("overall_risk"))
+        return result
+    except json.JSONDecodeError:
+        logger.warning("akashml_doctor_report_json_fail", raw=raw[:200] if raw else "")
+        return {"clinical_summary": raw if raw else "Report generation failed", "error": "json_parse"}
+    except Exception as e:
+        logger.error("akashml_doctor_report_fail", error=str(e))
+        return {"clinical_summary": "Report generation failed", "error": str(e)}
+
+
+PATIENT_BRIEFING_PROMPT = """You are a friendly, empathetic health assistant speaking directly to the patient.
+Generate a warm, clear spoken health briefing based on their current vitals and recent history.
+Keep it under 200 words. Use simple language, no medical jargon. Be encouraging but honest about concerns.
+Start with a greeting using their name. Mention specific numbers. End with one actionable tip.
+Return ONLY a JSON object:
+{
+  "spoken_text": "the full text to be spoken aloud",
+  "mood": "reassuring|cautious|urgent",
+  "key_message": "one sentence takeaway"
+}"""
+
+
+def akashml_patient_briefing(client: OpenAI, model: str, patient_name: str, context: str) -> dict:
+    """Generate patient-friendly spoken briefing text using AkashML."""
+    try:
+        resp = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": PATIENT_BRIEFING_PROMPT},
+                {"role": "user", "content": f"Patient name: {patient_name}\n\n{context}"},
+            ],
+            max_tokens=400,
+            temperature=0.4,
+        )
+        raw = resp.choices[0].message.content.strip()
+        if "```" in raw:
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+        result = json.loads(raw)
+        logger.info("akashml_patient_briefing_ok", mood=result.get("mood"))
+        return result
+    except Exception as e:
+        logger.error("akashml_patient_briefing_fail", error=str(e))
+        return {"spoken_text": f"Hello {patient_name}, we're monitoring your health. Please check in with your doctor soon.", "mood": "cautious"}
+
+
 WEEKLY_PROMPT = """You are a health reporting AI. Generate a weekly health summary from the patient's data.
 Return ONLY JSON:
 {
