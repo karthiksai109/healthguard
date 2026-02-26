@@ -152,6 +152,28 @@ body{font-family:"Inter",system-ui,sans-serif;background:var(--bg);color:var(--t
 .error-banner{display:none;padding:8px 12px;margin:8px 20px;border:1px solid var(--red);color:var(--red);font-size:11px;border-radius:6px;background:#fff5f5}
 .error-banner.show{display:block}
 
+/* Doctor cards */
+.doc-card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;gap:14px;align-items:flex-start;transition:.2s}
+.doc-card:hover{border-color:var(--accent);box-shadow:0 4px 16px rgba(31,122,140,.1)}
+.doc-card .avatar{width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#2dd4bf);display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;font-weight:700;flex-shrink:0}
+.doc-card .info{flex:1}
+.doc-card .info .name{font-size:14px;font-weight:600;color:var(--text)}
+.doc-card .info .spec{font-size:11px;color:var(--accent);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.doc-card .info .meta{font-size:10px;color:var(--muted);margin-top:4px;display:flex;gap:12px;flex-wrap:wrap}
+.doc-card .info .rate{font-size:13px;font-weight:700;color:var(--green);margin-top:4px}
+.doc-card .actions{display:flex;flex-direction:column;gap:6px;align-items:flex-end}
+.consult-card{background:#fff;border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px}
+.consult-card .status-tag{font-size:9px;padding:2px 8px;border-radius:4px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.consult-card .status-tag.requested{background:#fff7e6;color:var(--yellow)}
+.consult-card .status-tag.approved{background:#f0fdf4;color:var(--green)}
+.consult-card .status-tag.denied{background:#fff5f5;color:var(--red)}
+.consult-card .status-tag.completed{background:#ebf8ff;color:var(--accent)}
+.alert-suggest{background:linear-gradient(135deg,#fff5f5,#fff);border:1px solid #fed7d7;border-radius:10px;padding:14px;margin-top:12px;animation:fadeIn .3s ease}
+.alert-suggest .title{font-size:12px;font-weight:600;color:var(--red);margin-bottom:6px}
+/* Doctor reg form fields */
+.doc-reg-field{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;outline:none;margin-bottom:10px;transition:.2s}
+.doc-reg-field:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(31,122,140,.15)}
+
 @media(max-width:1024px){.main-grid{grid-template-columns:1fr 1fr}.vitals{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:768px){.vitals{grid-template-columns:1fr}.main-grid{grid-template-columns:1fr}.header{flex-direction:column;align-items:flex-start;gap:8px}.chat-welcome .suggestions{grid-template-columns:1fr}}
 </style>
@@ -168,6 +190,7 @@ body{font-family:"Inter",system-ui,sans-serif;background:var(--bg);color:var(--t
     <div class="auth-tabs">
       <button class="active" id="tabLogin">Login</button>
       <button id="tabRegister">New Patient</button>
+      <button id="tabDoctor">I'm a Doctor</button>
     </div>
 
     <!-- Login Form -->
@@ -198,6 +221,54 @@ body{font-family:"Inter",system-ui,sans-serif;background:var(--bg);color:var(--t
       </div>
     </div>
 
+    <!-- Doctor Form -->
+    <div id="doctorForm" style="display:none">
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <button class="btn small toggle-active" id="docLoginTab" style="flex:1">Doctor Login</button>
+        <button class="btn small" id="docRegTab" style="flex:1">Register as Doctor</button>
+      </div>
+      <div id="docLoginPanel">
+        <input class="auth-field" id="docLoginKey" type="text" placeholder="Enter your doctor access key (DR...)" maxlength="6" style="text-transform:uppercase;text-align:center;font-size:18px;letter-spacing:4px;font-family:monospace">
+        <button class="auth-btn" id="docLoginBtn">Login as Doctor</button>
+      </div>
+      <div id="docRegPanel" style="display:none">
+        <input class="doc-reg-field" id="docRegName" type="text" placeholder="Full Name (Dr. Jane Smith)">
+        <input class="doc-reg-field" id="docRegEmail" type="email" placeholder="Gmail (patients will see this)">
+        <select class="doc-reg-field" id="docRegSpec">
+          <option value="">Select Specialization</option>
+          <option value="General Medicine">General Medicine</option>
+          <option value="Cardiology">Cardiology</option>
+          <option value="Endocrinology">Endocrinology</option>
+          <option value="Pulmonology">Pulmonology</option>
+          <option value="Dermatology">Dermatology</option>
+          <option value="Orthopedics">Orthopedics</option>
+          <option value="Neurology">Neurology</option>
+          <option value="Psychiatry">Psychiatry</option>
+          <option value="Pediatrics">Pediatrics</option>
+          <option value="Oncology">Oncology</option>
+        </select>
+        <input class="doc-reg-field" id="docRegRate" type="text" placeholder="Pay Rate (e.g. $50/consultation)">
+        <textarea class="doc-reg-field" id="docRegBio" placeholder="Short bio (optional)" rows="2" style="resize:none;font-family:inherit"></textarea>
+        <div style="margin-bottom:12px">
+          <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px">Upload MBBS Certificate (PDF/Image)</label>
+          <input type="file" id="docRegCert" accept=".pdf,.jpg,.jpeg,.png,.webp" style="font-size:12px">
+        </div>
+        <button class="auth-btn" id="docRegBtn">Register & Get Doctor Key</button>
+        <div id="docRegResult" style="display:none">
+          <div class="access-key-display">
+            <div class="label">YOUR DOCTOR ACCESS KEY</div>
+            <div class="key" id="newDocKey"></div>
+            <div class="label" style="color:var(--red);margin-top:8px">&#9888; SAVE THIS! Starts with DR. Use it to log in.</div>
+          </div>
+          <button class="auth-btn" id="docRegContinueBtn" style="margin-top:8px">Continue to Doctor Dashboard</button>
+        </div>
+      </div>
+      <div class="privacy-note">
+        <span style="font-size:16px">&#129658;</span>
+        <span>Doctor accounts are verified via MBBS certificate hash. Patient data is ONLY accessible when the patient explicitly approves your consultation request.</span>
+      </div>
+    </div>
+
     <div id="authMsg" class="auth-msg"></div>
   </div>
 </div>
@@ -214,7 +285,9 @@ body{font-family:"Inter",system-ui,sans-serif;background:var(--bg);color:var(--t
     <a class="active" href="#" data-page="dashboard">Dashboard</a>
     <a href="#" data-page="chat">Health Chat</a>
     <a href="#" data-page="history">History</a>
-    <a href="#" data-page="doctor">Doctor</a>
+    <a href="#" data-page="finddoc">Find Doctor</a>
+    <a href="#" data-page="doctor">AI Report</a>
+    <a href="#" data-page="docdash" style="display:none">Doctor Dashboard</a>
     <a href="#" data-page="privacy">Privacy</a>
   </div>
   <div class="header-right">
@@ -330,6 +403,57 @@ body{font-family:"Inter",system-ui,sans-serif;background:var(--bg);color:var(--t
   </div>
 </div>
 
+<!-- ==================== FIND DOCTOR (Patient View) ==================== -->
+<div id="page-finddoc" class="page">
+  <div style="max-width:900px;margin:24px auto;padding:0 20px">
+    <h2 style="font-size:20px;color:var(--text);margin-bottom:4px">Find a Specialist Doctor</h2>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:16px">Browse verified doctors. Request a consultation — they can only see your data after YOU approve.</p>
+
+    <div id="doctorSuggestion"></div>
+
+    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+      <select id="filterSpec" class="doc-reg-field" style="width:auto;margin:0;padding:8px 12px">
+        <option value="">All Specializations</option>
+        <option value="General Medicine">General Medicine</option>
+        <option value="Cardiology">Cardiology</option>
+        <option value="Endocrinology">Endocrinology</option>
+        <option value="Pulmonology">Pulmonology</option>
+        <option value="Dermatology">Dermatology</option>
+        <option value="Orthopedics">Orthopedics</option>
+        <option value="Neurology">Neurology</option>
+      </select>
+      <button class="btn small primary" id="refreshDocsBtn">Refresh</button>
+    </div>
+
+    <div id="doctorsList"><div class="empty-state"><div class="icon">&#129658;</div>No doctors registered yet. Doctors can register on the login screen.</div></div>
+
+    <h3 style="font-size:16px;color:var(--text);margin:24px 0 12px">My Consultations</h3>
+    <div id="myConsultations"><div class="empty-state"><div class="icon">&#128203;</div>No consultations yet. Request one from the doctor list above.</div></div>
+  </div>
+</div>
+
+<!-- ==================== DOCTOR DASHBOARD (Doctor View) ==================== -->
+<div id="page-docdash" class="page">
+  <div style="max-width:900px;margin:24px auto;padding:0 20px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <div>
+        <h2 style="font-size:20px;color:var(--text);margin-bottom:4px">Doctor Dashboard</h2>
+        <p style="font-size:12px;color:var(--muted)">Manage consultation requests. Patient data is only visible after patient approval.</p>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:11px;color:var(--accent);font-weight:600" id="docDashName">--</div>
+        <div style="font-size:10px;color:var(--muted)" id="docDashSpec">--</div>
+      </div>
+    </div>
+
+    <h3 style="font-size:14px;color:var(--text);margin-bottom:12px">Consultation Requests</h3>
+    <div id="docConsultations"><div class="empty-state"><div class="icon">&#128203;</div>No consultation requests yet. Patients will find you in the doctor directory.</div></div>
+
+    <h3 style="font-size:14px;color:var(--text);margin:24px 0 12px">Patient Data (Approved Only)</h3>
+    <div id="docPatientData"><div class="empty-state"><div class="icon">&#128274;</div>Select an approved consultation above to view patient data.</div></div>
+  </div>
+</div>
+
 <!-- ==================== PRIVACY ==================== -->
 <div id="page-privacy" class="page">
   <div style="max-width:900px;margin:24px auto;padding:0 20px">
@@ -386,6 +510,9 @@ var currentPatientId = null;
 var currentAccessKey = null;
 var currentName = null;
 var chatPendingPhoto = null;
+var currentRole = 'patient';
+var currentDoctorId = null;
+var currentDoctorInfo = null;
 
 var $ = function(id) { return document.getElementById(id); };
 
@@ -396,27 +523,37 @@ async function fetchJSON(url) {
 }
 
 // ── AUTH ──
-$('tabLogin').addEventListener('click', function() {
-    $('tabLogin').classList.add('active'); $('tabRegister').classList.remove('active');
-    $('loginForm').style.display = ''; $('registerForm').style.display = 'none';
+function setAuthTab(tab) {
+    ['tabLogin','tabRegister','tabDoctor'].forEach(function(t) { $(t).classList.remove('active'); });
+    $(tab).classList.add('active');
+    $('loginForm').style.display = tab === 'tabLogin' ? '' : 'none';
+    $('registerForm').style.display = tab === 'tabRegister' ? '' : 'none';
+    $('doctorForm').style.display = tab === 'tabDoctor' ? '' : 'none';
     $('authMsg').classList.remove('show');
-});
-$('tabRegister').addEventListener('click', function() {
-    $('tabRegister').classList.add('active'); $('tabLogin').classList.remove('active');
-    $('registerForm').style.display = ''; $('loginForm').style.display = 'none';
-    $('authMsg').classList.remove('show');
-});
+}
+$('tabLogin').addEventListener('click', function() { setAuthTab('tabLogin'); });
+$('tabRegister').addEventListener('click', function() { setAuthTab('tabRegister'); });
+$('tabDoctor').addEventListener('click', function() { setAuthTab('tabDoctor'); });
 
 $('loginBtn').addEventListener('click', async function() {
     var key = $('loginKey').value.trim().toUpperCase();
     if (key.length < 4) { showAuthMsg('Enter your access key', 'error'); return; }
     this.disabled = true; this.textContent = 'Logging in...';
     try {
-        var fd = new FormData(); fd.append('access_key', key);
-        var r = await fetch('/login', { method: 'POST', body: fd });
-        var d = await r.json();
-        if (!r.ok) throw new Error(d.detail || 'Invalid access key');
-        enterApp(d.patient_id, d.access_key, d.name);
+        // Try patient login first, then doctor
+        if (key.startsWith('DR')) {
+            var fd = new FormData(); fd.append('access_key', key);
+            var r = await fetch('/login-doctor', { method: 'POST', body: fd });
+            var d = await r.json();
+            if (!r.ok) throw new Error(d.detail || 'Invalid doctor key');
+            enterDoctorApp(d);
+        } else {
+            var fd = new FormData(); fd.append('access_key', key);
+            var r = await fetch('/login', { method: 'POST', body: fd });
+            var d = await r.json();
+            if (!r.ok) throw new Error(d.detail || 'Invalid access key');
+            enterApp(d.patient_id, d.access_key, d.name);
+        }
     } catch(e) { showAuthMsg(e.message, 'error'); }
     this.disabled = false; this.textContent = 'Login Securely';
 });
@@ -457,13 +594,37 @@ function enterApp(pid, key, name) {
     currentPatientId = pid;
     currentAccessKey = key;
     currentName = name;
+    currentRole = 'patient';
     $('authOverlay').classList.add('hidden');
     $('mainApp').style.display = '';
     $('userName').textContent = name;
     $('userKey').textContent = key;
+    // Show patient nav, hide doctor dashboard
+    document.querySelectorAll('#navTabs a').forEach(function(a) { a.style.display = ''; });
     refreshAll();
-    // Load chat history
     loadChatHistory();
+    showPage('dashboard');
+}
+
+function enterDoctorApp(doc) {
+    currentRole = 'doctor';
+    currentDoctorId = doc.id;
+    currentDoctorInfo = doc;
+    currentAccessKey = doc.access_key;
+    currentName = doc.name;
+    $('authOverlay').classList.add('hidden');
+    $('mainApp').style.display = '';
+    $('userName').textContent = 'Dr. ' + doc.name;
+    $('userKey').textContent = doc.access_key;
+    $('docDashName').textContent = 'Dr. ' + doc.name;
+    $('docDashSpec').textContent = doc.specialization + ' | ' + doc.email;
+    // Show only doctor-relevant nav
+    document.querySelectorAll('#navTabs a').forEach(function(a) {
+        var p = a.dataset.page;
+        a.style.display = (p === 'docdash' || p === 'privacy') ? '' : 'none';
+    });
+    showPage('docdash');
+    refreshDoctorConsultations();
 }
 
 // ── LOGOUT ──
@@ -484,16 +645,17 @@ $('logoutBtn').addEventListener('click', async function() {
 });
 
 // ── NAV ──
+var ALL_PAGES = ['page-dashboard','page-chat','page-history','page-doctor','page-privacy','page-finddoc','page-docdash'];
 function showPage(page) {
-    ['page-dashboard','page-chat','page-history','page-doctor','page-privacy'].forEach(function(id) {
-        $(id).classList.remove('active');
-    });
+    ALL_PAGES.forEach(function(id) { $(id).classList.remove('active'); });
     $('page-' + page).classList.add('active');
     document.querySelectorAll('#navTabs a').forEach(function(a) {
         a.classList.toggle('active', a.dataset.page === page);
     });
     if (page === 'history') refreshHistory();
     if (page === 'chat') { $('chatInput').focus(); }
+    if (page === 'finddoc') { refreshDoctorsList(); refreshPatientConsultations(); }
+    if (page === 'docdash') { refreshDoctorConsultations(); }
 }
 document.querySelectorAll('#navTabs a').forEach(function(a) {
     a.addEventListener('click', function(e) { e.preventDefault(); showPage(this.dataset.page); });
@@ -861,6 +1023,259 @@ $('deleteDataBtn').addEventListener('click', async function() {
         $('dataRightsResult').innerHTML = '<div style="padding:8px;background:#fff5f5;border:1px solid #fed7d7;border-radius:6px;font-size:11px;color:var(--red)">Deleted: ' + d.vitals_deleted + ' vitals, ' + d.logs_deleted + ' logs, ' + d.alerts_deleted + ' alerts.</div>';
     } catch(e) {}
 });
+
+// ── DOCTOR AUTH ──
+$('docLoginTab').addEventListener('click', function() {
+    this.classList.add('toggle-active'); $('docRegTab').classList.remove('toggle-active');
+    $('docLoginPanel').style.display = ''; $('docRegPanel').style.display = 'none';
+});
+$('docRegTab').addEventListener('click', function() {
+    this.classList.add('toggle-active'); $('docLoginTab').classList.remove('toggle-active');
+    $('docRegPanel').style.display = ''; $('docLoginPanel').style.display = 'none';
+});
+
+$('docLoginBtn').addEventListener('click', async function() {
+    var key = $('docLoginKey').value.trim().toUpperCase();
+    if (key.length < 4) { showAuthMsg('Enter your doctor access key', 'error'); return; }
+    this.disabled = true; this.textContent = 'Logging in...';
+    try {
+        var fd = new FormData(); fd.append('access_key', key);
+        var r = await fetch('/login-doctor', { method: 'POST', body: fd });
+        var d = await r.json();
+        if (!r.ok) throw new Error(d.detail || 'Invalid doctor key');
+        enterDoctorApp(d);
+    } catch(e) { showAuthMsg(e.message, 'error'); }
+    this.disabled = false; this.textContent = 'Login as Doctor';
+});
+$('docLoginKey').addEventListener('keydown', function(e) { if (e.key === 'Enter') $('docLoginBtn').click(); });
+
+$('docRegBtn').addEventListener('click', async function() {
+    var name = $('docRegName').value.trim();
+    var email = $('docRegEmail').value.trim();
+    var spec = $('docRegSpec').value;
+    var rate = $('docRegRate').value.trim();
+    var cert = $('docRegCert').files[0];
+    if (!name || !email || !spec || !rate) { showAuthMsg('Fill all required fields', 'error'); return; }
+    if (!cert) { showAuthMsg('Upload your MBBS certificate', 'error'); return; }
+    this.disabled = true; this.textContent = 'Registering...';
+    try {
+        var fd = new FormData();
+        fd.append('name', name); fd.append('email', email);
+        fd.append('specialization', spec); fd.append('pay_rate', rate);
+        fd.append('bio', $('docRegBio').value.trim());
+        fd.append('certificate', cert);
+        var r = await fetch('/register-doctor', { method: 'POST', body: fd });
+        var d = await r.json();
+        if (!r.ok) throw new Error(d.detail || 'Registration failed');
+        $('newDocKey').textContent = d.access_key;
+        $('docRegResult').style.display = '';
+        $('docRegBtn').style.display = 'none';
+        currentDoctorId = d.doctor_id;
+        currentDoctorInfo = { id: d.doctor_id, name: d.name, specialization: d.specialization, access_key: d.access_key, email: email };
+    } catch(e) { showAuthMsg(e.message, 'error'); }
+    this.disabled = false; this.textContent = 'Register & Get Doctor Key';
+});
+
+$('docRegContinueBtn').addEventListener('click', function() {
+    enterDoctorApp(currentDoctorInfo);
+});
+
+// ── DOCTOR DIRECTORY (Patient View) ──
+async function refreshDoctorsList() {
+    if (currentRole !== 'patient') return;
+    try {
+        var spec = $('filterSpec').value;
+        var url = '/doctors' + (spec ? '?specialization=' + encodeURIComponent(spec) : '');
+        var docs = await fetchJSON(url);
+        if (!docs.length) { $('doctorsList').innerHTML = '<div class="empty-state"><div class="icon">&#129658;</div>No doctors found. Doctors can register on the login screen.</div>'; return; }
+        $('doctorsList').innerHTML = docs.map(function(d) {
+            var initials = d.name.split(' ').map(function(n) { return n[0]; }).join('').substring(0, 2);
+            return '<div class="doc-card" style="margin-bottom:10px">' +
+                '<div class="avatar">' + initials + '</div>' +
+                '<div class="info">' +
+                    '<div class="name">Dr. ' + d.name + '</div>' +
+                    '<div class="spec">' + d.specialization + '</div>' +
+                    '<div class="meta"><span>&#9993; ' + d.email + '</span>' + (d.verified ? '<span style="color:var(--green)">&#10003; Verified</span>' : '<span style="color:var(--yellow)">Pending</span>') + '</div>' +
+                    '<div class="rate">' + d.pay_rate + '</div>' +
+                    (d.bio ? '<div style="font-size:11px;color:var(--muted);margin-top:4px">' + d.bio + '</div>' : '') +
+                '</div>' +
+                '<div class="actions">' +
+                    '<button class="btn small primary" onclick="requestConsultation(\'' + d.id + '\',\'' + d.name.replace(/'/g, '') + '\',\'' + d.specialization + '\')">Request Consultation</button>' +
+                '</div>' +
+            '</div>';
+        }).join('');
+        // Check if patient has alert-level vitals and suggest doctors
+        loadDoctorSuggestions();
+    } catch(e) {}
+}
+$('refreshDocsBtn').addEventListener('click', refreshDoctorsList);
+$('filterSpec').addEventListener('change', refreshDoctorsList);
+
+async function loadDoctorSuggestions() {
+    if (!currentPatientId) return;
+    try {
+        var d = await fetchJSON('/suggest-doctors/' + currentPatientId);
+        if (d.patient_issues && d.patient_issues.length && d.suggested_doctors && d.suggested_doctors.length) {
+            var h = '<div class="alert-suggest"><div class="title">&#9888; Based on your health data, we recommend seeing a specialist:</div>';
+            h += '<div style="font-size:11px;color:var(--muted);margin-bottom:8px">Issues detected: ' + d.patient_issues.join(', ') + '</div>';
+            h += d.suggested_doctors.slice(0, 3).map(function(doc) {
+                return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px;background:#fff;border-radius:6px;margin-bottom:4px">' +
+                    '<div><strong style="font-size:12px">Dr. ' + doc.name + '</strong> <span style="font-size:10px;color:var(--accent)">' + doc.specialization + '</span> <span style="font-size:10px;color:var(--green)">' + doc.pay_rate + '</span></div>' +
+                    '<button class="btn small primary" onclick="requestConsultation(\'' + doc.id + '\',\'' + doc.name.replace(/'/g, '') + '\',\'' + doc.specialization + '\')">Request</button>' +
+                '</div>';
+            }).join('');
+            h += '</div>';
+            $('doctorSuggestion').innerHTML = h;
+        } else {
+            $('doctorSuggestion').innerHTML = '';
+        }
+    } catch(e) {}
+}
+
+async function requestConsultation(doctorId, doctorName, spec) {
+    var problem = prompt('Describe your health concern for Dr. ' + doctorName + ' (' + spec + '):');
+    if (!problem) return;
+    try {
+        var fd = new FormData();
+        fd.append('patient_id', currentPatientId);
+        fd.append('doctor_id', doctorId);
+        fd.append('problem', problem);
+        var r = await fetch('/request-consultation', { method: 'POST', body: fd });
+        var d = await r.json();
+        if (!r.ok) throw new Error(d.detail || 'Request failed');
+        alert('Consultation requested! Dr. ' + doctorName + ' will see your request. They CANNOT see your data until you approve.');
+        refreshPatientConsultations();
+    } catch(e) { alert('Error: ' + e.message); }
+}
+
+// ── PATIENT CONSULTATIONS ──
+async function refreshPatientConsultations() {
+    if (!currentPatientId || currentRole !== 'patient') return;
+    try {
+        var consults = await fetchJSON('/consultations/patient/' + currentPatientId);
+        if (!consults.length) { $('myConsultations').innerHTML = '<div class="empty-state"><div class="icon">&#128203;</div>No consultations yet.</div>'; return; }
+        $('myConsultations').innerHTML = consults.map(function(c) {
+            var statusCls = c.status || 'requested';
+            var actions = '';
+            if (c.status === 'requested') {
+                actions = '<div style="margin-top:8px;display:flex;gap:8px">' +
+                    '<button class="btn small primary" onclick="approveConsultation(\'' + c.id + '\')">Approve Data Access</button>' +
+                    '<button class="btn small" onclick="denyConsultation(\'' + c.id + '\')" style="border-color:var(--red);color:var(--red)">Deny</button>' +
+                '</div>' +
+                '<div style="font-size:9px;color:var(--muted);margin-top:4px">Doctor cannot see your data until you approve.</div>';
+            }
+            return '<div class="consult-card">' +
+                '<div style="display:flex;justify-content:space-between;align-items:center">' +
+                    '<div><strong style="font-size:13px">Dr. ' + (c.doctor_name || 'Unknown') + '</strong> <span style="font-size:10px;color:var(--accent)">' + (c.specialization || '') + '</span></div>' +
+                    '<span class="status-tag ' + statusCls + '">' + c.status + '</span>' +
+                '</div>' +
+                '<div style="font-size:11px;color:var(--muted);margin-top:4px">Concern: ' + (c.problem || 'N/A') + '</div>' +
+                (c.doctor_notes ? '<div style="font-size:11px;margin-top:6px;padding:8px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px"><strong style="color:var(--green)">Doctor\'s Notes:</strong> ' + c.doctor_notes + '</div>' : '') +
+                '<div style="font-size:9px;color:var(--muted);margin-top:4px">' + (c.doc_email || '') + ' | ' + (c.pay_rate || '') + ' | ' + (c.created_at || '').substring(0, 16) + '</div>' +
+                actions +
+            '</div>';
+        }).join('');
+    } catch(e) {}
+}
+
+async function approveConsultation(cid) {
+    if (!confirm('Allow this doctor to see your health data for this consultation?')) return;
+    try {
+        var r = await fetch('/consultation/' + cid + '/approve', { method: 'POST' });
+        var d = await r.json();
+        alert(d.message || 'Approved');
+        refreshPatientConsultations();
+    } catch(e) { alert('Error: ' + e.message); }
+}
+
+async function denyConsultation(cid) {
+    if (!confirm('Deny this consultation? Doctor will not be able to see your data.')) return;
+    try {
+        var r = await fetch('/consultation/' + cid + '/deny', { method: 'POST' });
+        var d = await r.json();
+        alert(d.message || 'Denied');
+        refreshPatientConsultations();
+    } catch(e) { alert('Error: ' + e.message); }
+}
+
+// ── DOCTOR DASHBOARD ──
+async function refreshDoctorConsultations() {
+    if (!currentDoctorId || currentRole !== 'doctor') return;
+    try {
+        var consults = await fetchJSON('/consultations/doctor/' + currentDoctorId);
+        if (!consults.length) { $('docConsultations').innerHTML = '<div class="empty-state"><div class="icon">&#128203;</div>No requests yet. Patients will find you in the directory.</div>'; return; }
+        $('docConsultations').innerHTML = consults.map(function(c) {
+            var statusCls = c.status || 'requested';
+            var actions = '';
+            if (c.patient_approved) {
+                actions = '<div style="margin-top:8px;display:flex;gap:8px">' +
+                    '<button class="btn small primary" onclick="viewPatientData(\'' + c.id + '\')">View Patient Data</button>' +
+                    '<button class="btn small" onclick="addDoctorNotes(\'' + c.id + '\')">Add Notes/Prescription</button>' +
+                '</div>';
+            } else if (c.status === 'requested') {
+                actions = '<div style="font-size:10px;color:var(--yellow);margin-top:6px;padding:6px;background:#fff7e6;border-radius:4px">&#128274; Waiting for patient to approve data access...</div>';
+            } else if (c.status === 'denied') {
+                actions = '<div style="font-size:10px;color:var(--red);margin-top:6px">Patient denied data access.</div>';
+            }
+            return '<div class="consult-card">' +
+                '<div style="display:flex;justify-content:space-between;align-items:center">' +
+                    '<div><strong style="font-size:13px">Patient ID: ' + c.patient_id.substring(0, 12) + '...</strong></div>' +
+                    '<span class="status-tag ' + statusCls + '">' + c.status + '</span>' +
+                '</div>' +
+                '<div style="font-size:11px;color:var(--muted);margin-top:4px">Concern: ' + (c.problem || 'N/A') + '</div>' +
+                '<div style="font-size:9px;color:var(--muted);margin-top:2px">' + (c.created_at || '').substring(0, 16) + '</div>' +
+                actions +
+            '</div>';
+        }).join('');
+    } catch(e) {}
+}
+
+async function viewPatientData(consultId) {
+    try {
+        var d = await fetchJSON('/consultation/' + consultId + '/patient-data');
+        var h = '<div class="card" style="margin-bottom:12px"><div class="card-title">Patient: ' + (d.patient ? d.patient.name : 'Unknown') + '</div>';
+        h += '<div style="font-size:10px;color:var(--accent);margin-bottom:8px">Access: ' + (d.access_reason || '') + '</div>';
+        // Vitals
+        if (d.vitals && d.vitals.length) {
+            h += '<div style="font-size:12px;font-weight:600;margin-bottom:6px">Vitals (' + d.vitals.length + ' records)</div>';
+            h += '<div style="display:grid;gap:4px;margin-bottom:12px">';
+            d.vitals.slice(0, 20).forEach(function(v) {
+                h += '<div style="font-size:10px;padding:4px 8px;background:#f8fafc;border-radius:4px">' + v.metric_type + ': <strong>' + v.value + '</strong> ' + (v.unit || '') + ' <span style="color:var(--muted)">' + (v.timestamp || '').substring(0, 16) + '</span></div>';
+            });
+            h += '</div>';
+        }
+        // Alerts
+        if (d.alerts && d.alerts.length) {
+            h += '<div style="font-size:12px;font-weight:600;margin-bottom:6px">Alerts</div>';
+            d.alerts.slice(0, 10).forEach(function(a) {
+                h += '<div style="font-size:10px;padding:4px 8px;background:#fff5f5;border-left:3px solid var(--red);border-radius:4px;margin-bottom:4px"><strong>Sev ' + a.severity + ':</strong> ' + (a.message || '') + '</div>';
+            });
+        }
+        // Logs
+        if (d.analysis_logs && d.analysis_logs.length) {
+            h += '<div style="font-size:12px;font-weight:600;margin:8px 0 6px">AI Analysis Logs</div>';
+            d.analysis_logs.slice(0, 5).forEach(function(l) {
+                h += '<div style="font-size:10px;padding:4px 8px;background:#ebf8ff;border-radius:4px;margin-bottom:4px">' + (l.summary || l.reason || '').substring(0, 200) + '</div>';
+            });
+        }
+        h += '</div>';
+        $('docPatientData').innerHTML = h;
+    } catch(e) {
+        $('docPatientData').innerHTML = '<div style="color:var(--red);font-size:12px">Access denied: ' + e.message + '</div>';
+    }
+}
+
+async function addDoctorNotes(consultId) {
+    var notes = prompt('Enter your notes/prescription for this patient:');
+    if (!notes) return;
+    try {
+        var fd = new FormData(); fd.append('notes', notes);
+        var r = await fetch('/consultation/' + consultId + '/notes', { method: 'POST', body: fd });
+        var d = await r.json();
+        alert(d.message || 'Notes saved');
+        refreshDoctorConsultations();
+    } catch(e) { alert('Error: ' + e.message); }
+}
 
 // ── AUTO REFRESH ──
 setInterval(refreshStatus, 5000);

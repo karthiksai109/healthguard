@@ -120,6 +120,34 @@ class Database:
                     FOREIGN KEY (patient_id) REFERENCES patients(id)
                 );
                 CREATE INDEX IF NOT EXISTS idx_chat_patient ON chat_messages(patient_id, timestamp);
+                CREATE TABLE IF NOT EXISTS doctors (
+                    id TEXT PRIMARY KEY,
+                    name_encrypted TEXT NOT NULL,
+                    email TEXT NOT NULL,
+                    specialization TEXT NOT NULL,
+                    pay_rate TEXT NOT NULL,
+                    certificate_hash TEXT NOT NULL,
+                    certificate_filename TEXT NOT NULL,
+                    bio_encrypted TEXT DEFAULT '',
+                    verified INTEGER DEFAULT 0,
+                    access_key TEXT UNIQUE,
+                    created_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS consultations (
+                    id TEXT PRIMARY KEY,
+                    patient_id TEXT NOT NULL,
+                    doctor_id TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'requested',
+                    problem_description_encrypted TEXT DEFAULT '',
+                    patient_approved INTEGER DEFAULT 0,
+                    doctor_notes_encrypted TEXT DEFAULT '',
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    FOREIGN KEY (patient_id) REFERENCES patients(id),
+                    FOREIGN KEY (doctor_id) REFERENCES doctors(id)
+                );
+                CREATE INDEX IF NOT EXISTS idx_consult_patient ON consultations(patient_id, status);
+                CREATE INDEX IF NOT EXISTS idx_consult_doctor ON consultations(doctor_id, status);
             """)
         # Migrate: add access_key column if missing
         try:
@@ -328,6 +356,202 @@ class Database:
         with self._conn() as conn:
             count = conn.execute("DELETE FROM chat_messages WHERE patient_id = ?", (patient_id,)).rowcount
         return count
+
+    # ── Doctors ─────────────────────────────────────────────────────────
+    def _generate_doctor_access_key(self) -> str:
+        import random, string
+        for _ in range(100):
+            key = 'DR' + ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
+            with self._conn() as conn:
+                existing = conn.execute("SELECT id FROM doctors WHERE access_key = ?", (key,)).fetchone()
+            if not existing:
+                return key
+        return 'DR' + str(uuid.uuid4())[:6].upper()
+
+    def create_doctor(self, name: str, email: str, specialization: str,
+                      pay_rate: str, certificate_hash: str, certificate_filename: str,
+                      bio: str = "") -> tuple:
+        did = str(uuid.uuid4())
+        name_enc = self.encryption.encrypt(name)
+        bio_enc = self.encryption.encrypt(bio) if bio else ""
+        access_key = self._generate_doctor_access_key()
+        with self._conn() as conn:
+            conn.execute(
+                """INSERT INTO doctors (id, name_encrypted, email, specialization, pay_rate,
+                   certificate_hash, certificate_filename, bio_encrypted, verified, access_key, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)""",
+                (did, name_enc, email.lower().strip(), specialization, pay_rate,
+                 certificate_hash, certificate_filename, bio_enc, access_key,
+                 datetime.utcnow().isoformat()),
+            )
+        return did, access_key
+
+    def login_doctor(self, access_key: str) -> dict | None:
+        with self._conn() as conn:
+            row = conn.execute("SELECT * FROM doctors WHERE access_key = ?", (access_key.strip().upper(),)).fetchone()
+        if not row:
+            return None
+        return {
+            "id": row["id"],
+            "name": self.encryption.decrypt(row["name_encrypted"]),
+            "email": row["email"],
+            "specialization": row["specialization"],
+            "pay_rate": row["pay_rate"],
+            "verified": bool(row["verified"]),
+            "access_key": row["access_key"],
+            "created_at": row["created_at"],
+        }
+
+    def verify_doctor(self, doctor_id: str) -> bool:
+        with self._conn() as conn:
+            conn.execute("UPDATE doctors SET verified = 1 WHERE id = ?", (doctor_id,))
+        return True
+
+    def list_doctors(self, specialization: str = None, verified_only: bool = True) -> list[dict]:
+        query = "SELECT * FROM doctors"
+        params = []
+        conditions = []
+        if verified_only:
+            conditions.append("verified = 1")
+        if specialization:
+            conditions.append("specialization = ?")
+            params.append(specialization)
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+        query += " ORDER BY created_at DESC"
+        with self._conn() as conn:
+            rows = conn.execute(query, params).fetchall()
+        results = []
+        for r in rows:
+            d = {
+                "id": r["id"],
+                "name": self.encryption.decrypt(r["name_encrypted"]),
+                "email": r["email"],
+                "specialization": r["specialization"],
+                "pay_rate": r["pay_rate"],
+                "verified": bool(r["verified"]),
+                "created_at": r["created_at"],
+            }
+            if r["bio_encrypted"]:
+                try:
+                    d["bio"] = self.encryption.decrypt(r["bio_encrypted"])
+                except Exception:
+                    d["bio"] = ""
+            else:
+                d["bio"] = ""
+            results.append(d)
+        return results
+
+    def get_doctor(self, doctor_id: str) -> dict | None:
+        with self._conn() as conn:
+            row = conn.execute("SELECT * FROM doctors WHERE id = ?", (doctor_id,)).fetchone()
+        if not row:
+            return None
+        d = {
+            "id": row["id"],
+            "name": self.encryption.decrypt(row["name_encrypted"]),
+            "email": row["email"],
+            "specialization": row["specialization"],
+            "pay_rate": row["pay_rate"],
+            "verified": bool(row["verified"]),
+            "access_key": row["access_key"],
+            "created_at": row["created_at"],
+        }
+        if row["bio_encrypted"]:
+            try:
+                d["bio"] = self.encryption.decrypt(row["bio_encrypted"])
+            except Exception:
+                d["bio"] = ""
+        else:
+            d["bio"] = ""
+        return d
+
+    # ── Consultations ──────────────────────────────────────────────────
+    def create_consultation(self, patient_id: str, doctor_id: str, problem: str) -> str:
+        cid = str(uuid.uuid4())
+        problem_enc = self.encryption.encrypt(problem) if problem else ""
+        now = datetime.utcnow().isoformat()
+        with self._conn() as conn:
+            conn.execute(
+                """INSERT INTO consultations (id, patient_id, doctor_id, status,
+                   problem_description_encrypted, patient_approved, created_at, updated_at)
+                   VALUES (?, ?, ?, 'requested', ?, 0, ?, ?)""",
+                (cid, patient_id, doctor_id, problem_enc, now, now),
+            )
+        return cid
+
+    def get_consultations_for_patient(self, patient_id: str) -> list[dict]:
+        with self._conn() as conn:
+            rows = conn.execute(
+                "SELECT c.*, d.name_encrypted as doc_name_enc, d.specialization, d.email as doc_email, d.pay_rate "
+                "FROM consultations c JOIN doctors d ON c.doctor_id = d.id "
+                "WHERE c.patient_id = ? ORDER BY c.updated_at DESC",
+                (patient_id,),
+            ).fetchall()
+        return self._format_consultations(rows)
+
+    def get_consultations_for_doctor(self, doctor_id: str) -> list[dict]:
+        with self._conn() as conn:
+            rows = conn.execute(
+                "SELECT c.*, d.name_encrypted as doc_name_enc, d.specialization, d.email as doc_email, d.pay_rate "
+                "FROM consultations c JOIN doctors d ON c.doctor_id = d.id "
+                "WHERE c.doctor_id = ? ORDER BY c.updated_at DESC",
+                (doctor_id,),
+            ).fetchall()
+        return self._format_consultations(rows)
+
+    def _format_consultations(self, rows) -> list[dict]:
+        results = []
+        for r in rows:
+            d = dict(r)
+            try:
+                d["doctor_name"] = self.encryption.decrypt(d["doc_name_enc"])
+            except Exception:
+                d["doctor_name"] = "Doctor"
+            if d.get("problem_description_encrypted"):
+                try:
+                    d["problem"] = self.encryption.decrypt(d["problem_description_encrypted"])
+                except Exception:
+                    d["problem"] = "[encrypted]"
+            else:
+                d["problem"] = ""
+            if d.get("doctor_notes_encrypted"):
+                try:
+                    d["doctor_notes"] = self.encryption.decrypt(d["doctor_notes_encrypted"])
+                except Exception:
+                    d["doctor_notes"] = ""
+            else:
+                d["doctor_notes"] = ""
+            # Clean up internal fields
+            for key in ["doc_name_enc", "problem_description_encrypted", "doctor_notes_encrypted"]:
+                d.pop(key, None)
+            results.append(d)
+        return results
+
+    def update_consultation_status(self, consultation_id: str, status: str, patient_approved: bool = None, doctor_notes: str = None) -> bool:
+        updates = ["status = ?", "updated_at = ?"]
+        params = [status, datetime.utcnow().isoformat()]
+        if patient_approved is not None:
+            updates.append("patient_approved = ?")
+            params.append(int(patient_approved))
+        if doctor_notes is not None:
+            updates.append("doctor_notes_encrypted = ?")
+            params.append(self.encryption.encrypt(doctor_notes))
+        params.append(consultation_id)
+        with self._conn() as conn:
+            conn.execute(f"UPDATE consultations SET {', '.join(updates)} WHERE id = ?", params)
+        return True
+
+    def get_consultation(self, consultation_id: str) -> dict | None:
+        with self._conn() as conn:
+            rows = conn.execute(
+                "SELECT c.*, d.name_encrypted as doc_name_enc, d.specialization, d.email as doc_email, d.pay_rate "
+                "FROM consultations c JOIN doctors d ON c.doctor_id = d.id "
+                "WHERE c.id = ?",
+                (consultation_id,),
+            ).fetchall()
+        formatted = self._format_consultations(rows)
+        return formatted[0] if formatted else None
 
     def get_stats(self) -> dict:
         with self._conn() as conn:

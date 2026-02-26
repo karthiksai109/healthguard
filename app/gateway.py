@@ -198,6 +198,220 @@ def clear_chat(patient_id: str):
     return JSONResponse({"status": "cleared", "messages_deleted": count})
 
 
+# ── Doctor Marketplace ────────────────────────────────────────────────
+
+@app.post("/register-doctor")
+async def register_doctor(
+    name: str = Form(...),
+    email: str = Form(...),
+    specialization: str = Form(...),
+    pay_rate: str = Form(...),
+    bio: str = Form(""),
+    certificate: UploadFile = File(...),
+):
+    """Register a doctor with MBBS certificate. Auto-verified for hackathon demo."""
+    if not name.strip() or not email.strip():
+        raise HTTPException(400, "Name and email required")
+    cert_bytes = await certificate.read()
+    if len(cert_bytes) > 10 * 1024 * 1024:
+        raise HTTPException(400, "Certificate too large (max 10MB)")
+    import hashlib as _hl
+    cert_hash = _hl.sha256(cert_bytes).hexdigest()
+    doctor_id, access_key = _db.create_doctor(
+        name.strip(), email.strip(), specialization.strip(),
+        pay_rate.strip(), cert_hash, certificate.filename or "certificate", bio.strip()
+    )
+    # Auto-verify for hackathon demo
+    _db.verify_doctor(doctor_id)
+    _db.audit({
+        "type": "doctor_registered",
+        "doctor_id": doctor_id[:8] + "...",
+        "specialization": specialization,
+        "certificate_hash": cert_hash[:12],
+        "auto_verified": True,
+    })
+    return JSONResponse({
+        "status": "registered",
+        "doctor_id": doctor_id,
+        "access_key": access_key,
+        "name": name.strip(),
+        "specialization": specialization.strip(),
+        "verified": True,
+        "message": "Save your access key (starts with DR). You need it to log in as a doctor.",
+    })
+
+
+@app.post("/login-doctor")
+async def login_doctor(access_key: str = Form(...)):
+    """Doctor login with access key (starts with DR)."""
+    doctor = _db.login_doctor(access_key.strip())
+    if not doctor:
+        raise HTTPException(401, "Invalid doctor access key")
+    _db.audit({"type": "doctor_login", "doctor_id": doctor["id"][:8] + "..."})
+    return JSONResponse({
+        "status": "authenticated",
+        "role": "doctor",
+        **doctor,
+    })
+
+
+@app.get("/doctors")
+def list_doctors(specialization: str = None):
+    """List verified doctors. Patients can browse by specialization."""
+    docs = _db.list_doctors(specialization=specialization, verified_only=False)
+    return JSONResponse(docs)
+
+
+@app.get("/doctor/{doctor_id}")
+def get_doctor_detail(doctor_id: str):
+    """Get doctor profile."""
+    doc = _db.get_doctor(doctor_id)
+    if not doc:
+        raise HTTPException(404, "Doctor not found")
+    return JSONResponse(doc)
+
+
+@app.post("/request-consultation")
+async def request_consultation(
+    patient_id: str = Form(...),
+    doctor_id: str = Form(...),
+    problem: str = Form(...),
+):
+    """Patient requests consultation with a doctor. Doctor cannot see data until patient approves."""
+    patient = _db.get_patient(patient_id)
+    if not patient:
+        raise HTTPException(404, "Patient not found")
+    doctor = _db.get_doctor(doctor_id)
+    if not doctor:
+        raise HTTPException(404, "Doctor not found")
+    cid = _db.create_consultation(patient_id, doctor_id, problem.strip())
+    _db.audit({
+        "type": "consultation_requested",
+        "consultation_id": cid[:8] + "...",
+        "patient_id": patient_id[:8] + "...",
+        "doctor_id": doctor_id[:8] + "...",
+    })
+    return JSONResponse({
+        "status": "requested",
+        "consultation_id": cid,
+        "message": "Request sent to doctor. They can see your request but NOT your health data until you approve.",
+    })
+
+
+@app.get("/consultations/patient/{patient_id}")
+def patient_consultations(patient_id: str):
+    """Get all consultations for a patient."""
+    return JSONResponse(_db.get_consultations_for_patient(patient_id))
+
+
+@app.get("/consultations/doctor/{doctor_id}")
+def doctor_consultations(doctor_id: str):
+    """Get all consultation requests for a doctor."""
+    return JSONResponse(_db.get_consultations_for_doctor(doctor_id))
+
+
+@app.post("/consultation/{consultation_id}/approve")
+async def approve_consultation(consultation_id: str):
+    """Patient approves data access for the doctor. NOW the doctor can see patient data."""
+    consult = _db.get_consultation(consultation_id)
+    if not consult:
+        raise HTTPException(404, "Consultation not found")
+    _db.update_consultation_status(consultation_id, "approved", patient_approved=True)
+    _db.audit({
+        "type": "consultation_approved",
+        "consultation_id": consultation_id[:8] + "...",
+        "patient_id": consult["patient_id"][:8] + "...",
+        "doctor_id": consult["doctor_id"][:8] + "...",
+    })
+    return JSONResponse({"status": "approved", "message": "Doctor can now access your health data for this consultation."})
+
+
+@app.post("/consultation/{consultation_id}/deny")
+async def deny_consultation(consultation_id: str):
+    """Patient denies data access."""
+    consult = _db.get_consultation(consultation_id)
+    if not consult:
+        raise HTTPException(404, "Consultation not found")
+    _db.update_consultation_status(consultation_id, "denied", patient_approved=False)
+    _db.audit({"type": "consultation_denied", "consultation_id": consultation_id[:8] + "..."})
+    return JSONResponse({"status": "denied", "message": "Consultation denied. Doctor cannot see your data."})
+
+
+@app.post("/consultation/{consultation_id}/notes")
+async def doctor_add_notes(consultation_id: str, notes: str = Form(...)):
+    """Doctor adds notes/prescription to an approved consultation."""
+    consult = _db.get_consultation(consultation_id)
+    if not consult:
+        raise HTTPException(404, "Consultation not found")
+    if not consult.get("patient_approved"):
+        raise HTTPException(403, "Patient has not approved data access yet")
+    _db.update_consultation_status(consultation_id, "completed", doctor_notes=notes.strip())
+    _db.audit({"type": "doctor_notes_added", "consultation_id": consultation_id[:8] + "..."})
+    return JSONResponse({"status": "notes_added", "message": "Notes saved (encrypted)."})
+
+
+@app.get("/consultation/{consultation_id}/patient-data")
+def doctor_view_patient_data(consultation_id: str, doctor_id: str = None):
+    """Doctor views patient data — ONLY if patient approved the consultation."""
+    consult = _db.get_consultation(consultation_id)
+    if not consult:
+        raise HTTPException(404, "Consultation not found")
+    if not consult.get("patient_approved"):
+        raise HTTPException(403, "Access denied — patient has not approved data sharing for this consultation")
+    # Return patient health data
+    pid = consult["patient_id"]
+    patient = _db.get_patient(pid)
+    vitals = _db.get_vitals(pid, days=30)
+    logs = _db.get_logs(pid, limit=20)
+    alerts = _db.get_alerts(pid, limit=20)
+    return JSONResponse({
+        "patient": patient,
+        "vitals": vitals,
+        "analysis_logs": logs,
+        "alerts": alerts,
+        "access_reason": "Patient approved consultation " + consultation_id[:8],
+    })
+
+
+@app.get("/suggest-doctors/{patient_id}")
+def suggest_doctors(patient_id: str):
+    """AI suggests specialist doctors based on patient's health issues."""
+    patient = _db.get_patient(patient_id)
+    if not patient:
+        raise HTTPException(404, "Patient not found")
+    latest = _db.get_latest_vitals(patient_id)
+    alerts = _db.get_alerts(patient_id, limit=5)
+    # Determine specializations needed
+    needed = set()
+    for metric, data in latest.items():
+        v = data["value"]
+        if metric in ("bp_systolic",) and v >= 140:
+            needed.add("Cardiology")
+        if metric in ("bp_diastolic",) and v >= 90:
+            needed.add("Cardiology")
+        if metric == "glucose" and v >= 180:
+            needed.add("Endocrinology")
+        if metric == "temperature" and v >= 100.4:
+            needed.add("General Medicine")
+        if metric == "pain_level" and v >= 7:
+            needed.add("General Medicine")
+        if metric == "oxygen_saturation" and v < 92:
+            needed.add("Pulmonology")
+    if alerts:
+        needed.add("General Medicine")
+    if not needed:
+        needed.add("General Medicine")
+    # Get matching doctors
+    all_docs = _db.list_doctors(verified_only=False)
+    suggested = [d for d in all_docs if d["specialization"] in needed]
+    if not suggested:
+        suggested = all_docs[:5]
+    return JSONResponse({
+        "patient_issues": list(needed),
+        "suggested_doctors": suggested,
+    })
+
+
 # ── Upload Endpoints ──────────────────────────────────────────────────
 
 @app.post("/upload-photo")
