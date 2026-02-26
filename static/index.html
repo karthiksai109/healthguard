@@ -1,1734 +1,1050 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HealthGuard — Private AI Health Agent</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Sans:wght@400;500;700&display=swap"
-        rel="stylesheet">
-    <style>
-        :root {
-            --bg: #f4f7fb;
-            --surface: #ffffff;
-            --card: #ffffff;
-            --border: #e4ebf3;
-            --accent: #1f7a8c;
-            --green: #2f855a;
-            --yellow: #b7791f;
-            --red: #c53030;
-            --text: #1a202c;
-            --muted: #5a6b82;
-        }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0
-        }
-
-        body {
-            font-family: "Inter", "DM Sans", system-ui, sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            min-height: 100vh;
-        }
-
-        .mono {
-            font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Fira Code", "Courier New", monospace
-        }
-
-        .header {
-            position: sticky;
-            top: 0;
-            z-index: 50;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 14px 20px;
-            border-bottom: 1px solid var(--border);
-            background: rgba(255, 255, 255, .9);
-            backdrop-filter: blur(12px);
-        }
-
-        .logo {
-            display: flex;
-            flex-direction: column;
-            gap: 2px
-        }
-
-        .logo h1 {
-            font-size: 18px;
-            letter-spacing: 1px;
-            color: var(--accent)
-        }
-
-        .logo span {
-            font-size: 10px;
-            color: var(--muted)
-        }
-
-        .nav {
-            display: flex;
-            gap: 14px;
-            font-size: 11px
-        }
-
-        .nav a {
-            color: var(--muted);
-            text-decoration: none;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            padding: 6px 10px;
-            border-radius: 6px;
-            border: 1px solid transparent;
-        }
-
-        .nav a.active {
-            color: var(--accent);
-            background: rgba(0, 212, 255, 0.1);
-            border-color: rgba(0, 212, 255, 0.3);
-        }
-
-        .header-right {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            font-size: 10px;
-            color: var(--muted)
-        }
-
-        .privacy {
-            display: flex;
-            align-items: center;
-            gap: 8px
-        }
-
-        .pulse-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: var(--green);
-            box-shadow: 0 0 8px rgba(47, 133, 90, .4);
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0% {
-                transform: scale(1);
-                opacity: 1
-            }
-
-            50% {
-                transform: scale(2.5);
-                opacity: .4
-            }
-
-            100% {
-                transform: scale(1);
-                opacity: 1
-            }
-        }
-
-        .status-bar {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 12px;
-            padding: 14px 20px;
-            border-bottom: 1px solid var(--border);
-            background: var(--surface);
-            font-size: 11px;
-            color: var(--muted);
-            font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Fira Code", "Courier New", monospace;
-        }
-
-        .status-pill {
-            display: flex;
-            align-items: center;
-            gap: 8px
-        }
-
-        .status-pill strong {
-            color: var(--text);
-            font-weight: 600
-        }
-
-        .grid {
-            padding: 16px 20px;
-            display: grid;
-            gap: 16px
-        }
-
-        .vitals {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 12px
-        }
-
-        .card {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 14px;
-            box-shadow: 0 6px 20px rgba(20, 30, 60, 0.08);
-        }
-
-        .card.status-normal {
-            background: #ffffff;
-            border-color: #e4ebf3;
-            box-shadow: none;
-        }
-
-        .card.status-watch {
-            background: linear-gradient(135deg, #ffffff, #fff7e6);
-            border-color: #b7791f44;
-            box-shadow: 0 0 20px rgba(183, 121, 31, 0.08);
-        }
-
-        .card.status-alert {
-            background: linear-gradient(135deg, #ffffff, #ffe8e8);
-            border-color: #c5303044;
-            box-shadow: 0 0 30px rgba(197, 48, 48, 0.12);
-            animation: alertPulse 2.5s ease-in-out infinite;
-        }
-
-        .card.status-watch .metric-value {
-            color: var(--yellow)
-        }
-
-        .card.status-alert .metric-value {
-            color: var(--red)
-        }
-
-        @keyframes alertPulse {
-
-            0%,
-            100% {
-                box-shadow: 0 0 30px rgba(255, 68, 102, 0.12)
-            }
-
-            50% {
-                box-shadow: 0 0 40px rgba(255, 68, 102, 0.22)
-            }
-        }
-
-        .card-title {
-            font-size: 11px;
-            color: var(--muted);
-            letter-spacing: 1px;
-            text-transform: uppercase;
-            margin-bottom: 8px
-        }
-
-        .metric {
-            display: flex;
-            align-items: center;
-            justify-content: space-between
-        }
-
-        .metric-value {
-            font-size: 36px;
-            font-weight: 700;
-            color: var(--text)
-        }
-
-        .metric-sub {
-            font-size: 10px;
-            color: var(--muted)
-        }
-
-        .badge {
-            font-size: 9px;
-            padding: 3px 6px;
-            border-radius: 4px;
-            letter-spacing: 1px;
-            font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Fira Code", "Courier New", monospace;
-        }
-
-        .badge.green {
-            background: rgba(47, 133, 90, .12);
-            color: var(--green)
-        }
-
-        .badge.yellow {
-            background: rgba(183, 121, 31, .12);
-            color: var(--yellow)
-        }
-
-        .badge.red {
-            background: rgba(197, 48, 48, .12);
-            color: var(--red)
-        }
-
-        .main-grid {
-            display: grid;
-            grid-template-columns: 1.2fr 1.2fr 320px;
-            gap: 16px
-        }
-
-        .chart-wrap {
-            height: 220px
-        }
-
-        .actions-list,
-        .feed-list {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            max-height: 260px;
-            overflow-y: auto;
-        }
-
-        .action-item {
-            border-left: 3px solid var(--border);
-            padding: 10px 12px;
-            background: #ffffff;
-            border-radius: 8px;
-            font-size: 10px;
-            color: var(--muted);
-            display: grid;
-            gap: 6px
-        }
-
-        .action-item.red {
-            border-left-color: var(--red)
-        }
-
-        .action-item.yellow {
-            border-left-color: var(--yellow)
-        }
-
-        .action-item.green {
-            border-left-color: var(--green)
-        }
-
-        .action-header {
-            display: flex;
-            justify-content: space-between;
-            color: var(--text)
-        }
-
-        .badge.small {
-            font-size: 8px;
-            padding: 2px 6px;
-            border-radius: 4px
-        }
-
-        .upload-panel .row {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-            margin-bottom: 10px
-        }
-
-        .btn {
-            padding: 10px 12px;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            background: transparent;
-            color: var(--text);
-            font-size: 11px;
-            cursor: pointer;
-            transition: .2s;
-            width: 100%;
-        }
-
-        .btn:hover {
-            border-color: var(--accent);
-            background: rgba(31, 122, 140, .12)
-        }
-
-        .btn.primary {
-            background: var(--accent);
-            color: #ffffff;
-            border-color: var(--accent);
-            font-weight: 600
-        }
-
-        .btn.toggle-active {
-            border-color: var(--accent);
-            color: var(--accent);
-            background: rgba(0, 212, 255, 0.08)
-        }
-
-        .drop-zone {
-            border: 1px dashed #c9d6e6;
-            border-radius: 10px;
-            padding: 18px;
-            text-align: center;
-            color: var(--muted);
-            cursor: pointer;
-            transition: .2s;
-            background: rgba(0, 0, 0, 0.0);
-        }
-
-        .drop-zone:hover,
-        .drop-zone.hover {
-            border-color: var(--accent);
-            background: rgba(31, 122, 140, 0.06);
-        }
-
-        .drop-zone .icon {
-            font-size: 28px;
-            margin-bottom: 8px;
-            color: var(--accent)
-        }
-
-        .drop-zone .text {
-            font-size: 12px;
-            color: var(--text)
-        }
-
-        .drop-zone .subtext {
-            font-size: 10px;
-            color: var(--muted);
-            margin-top: 4px
-        }
-
-        .hidden-input {
-            display: none
-        }
-
-        .filename {
-            font-size: 10px;
-            color: var(--muted);
-            margin-top: 6px
-        }
-
-        .note-label {
-            font-size: 12px;
-            color: var(--text);
-            margin-top: 10px
-        }
-
-        .note-area {
-            width: 100%;
-            min-height: 70px;
-            max-height: 120px;
-            resize: vertical;
-            background: #f9fbff;
-            border: 1px solid #d7e2ef;
-            border-radius: 8px;
-            color: var(--text);
-            padding: 10px;
-            font-size: 11px;
-        }
-
-        .note-footer {
-            display: flex;
-            justify-content: space-between;
-            font-size: 9px;
-            color: var(--muted);
-            margin-top: 4px
-        }
-
-        .section-divider {
-            height: 1px;
-            background: #e4ebf3;
-            margin: 14px 0
-        }
-
-        .device-row {
-            display: flex;
-            gap: 10px;
-            align-items: center
-        }
-
-        .device-select {
-            padding: 8px;
-            border-radius: 8px;
-            border: 1px solid #d7e2ef;
-            background: #ffffff;
-            font-size: 11px;
-            color: var(--text)
-        }
-
-        .device-result {
-            font-size: 12px;
-            color: var(--text);
-            margin-top: 8px
-        }
-
-        .device-actions {
-            display: flex;
-            gap: 8px;
-            margin-top: 8px
-        }
-
-        .btn.small {
-            width: auto;
-            padding: 6px 10px;
-            font-size: 10px
-        }
-
-        .input-inline {
-            padding: 6px 8px;
-            border-radius: 6px;
-            border: 1px solid #d7e2ef;
-            background: #ffffff;
-            font-size: 11px
-        }
-
-        .voice-toggle {
-            border: 1px dashed #c9d6e6;
-            background: transparent;
-            color: var(--text);
-            padding: 12px;
-            border-radius: 10px;
-            width: 100%;
-            text-align: center;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        }
-
-        .voice-toggle.recording {
-            border-color: var(--red);
-            color: var(--red)
-        }
-
-        .voice-toggle.ready {
-            border-color: var(--accent);
-            color: var(--accent)
-        }
-
-        .voice-dot {
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background: var(--red);
-            animation: pulse 1.2s infinite
-        }
-
-        .state {
-            font-size: 10px;
-            color: var(--muted)
-        }
-
-        .pipeline {
-            display: grid;
-            gap: 10px
-        }
-
-        .step {
-            display: grid;
-            grid-template-columns: 36px 1fr;
-            gap: 10px;
-            align-items: center
-        }
-
-        .step-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: rgba(31, 122, 140, 0.12);
-            color: var(--accent);
-            font-size: 18px;
-            border: 1px solid rgba(31, 122, 140, 0.3);
-        }
-
-        .step-body {
-            display: flex;
-            flex-direction: column;
-            gap: 2px
-        }
-
-        .step-title {
-            font-size: 11px;
-            color: var(--text);
-            font-weight: 700
-        }
-
-        .step-model {
-            font-size: 10px;
-            color: var(--muted)
-        }
-
-        .step-note {
-            font-size: 9px;
-            color: var(--muted)
-        }
-
-        .connector {
-            height: 16px;
-            border-left: 1px solid #1e2d4a;
-            margin: 0 0 0 18px
-        }
-
-        .feed-header {
-            display: flex;
-            align-items: center;
-            gap: 8px
-        }
-
-        .feed-item {
-            font-size: 10px;
-            color: var(--muted);
-            animation: fadeIn .3s ease;
-            font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Fira Code", "Courier New", monospace
-        }
-
-        .feed-item.cyan {
-            color: var(--accent)
-        }
-
-        .feed-item.green {
-            color: var(--green)
-        }
-
-        .feed-item.yellow {
-            color: var(--yellow)
-        }
-
-        .feed-item.red {
-            color: var(--red)
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(4px)
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0)
-            }
-        }
-
-        .footer {
-            padding: 16px 20px;
-            border-top: 1px solid var(--border);
-            font-size: 10px;
-            color: var(--muted);
-            text-align: center
-        }
-
-        .error-banner {
-            display: none;
-            padding: 8px 12px;
-            margin: 12px 20px;
-            border: 1px solid var(--red);
-            color: var(--red);
-            font-size: 11px;
-            border-radius: 6px;
-            background: #fff5f5
-        }
-
-        .error-banner.show {
-            display: block
-        }
-
-        .bp-line {
-            stroke-dasharray: 1000;
-            stroke-dashoffset: 1000;
-            animation: draw 1.5s ease forwards
-        }
-
-        @keyframes draw {
-            to {
-                stroke-dashoffset: 0
-            }
-        }
-
-        details summary {
-            cursor: pointer;
-            list-style: none
-        }
-
-        details summary::-webkit-details-marker {
-            display: none
-        }
-
-        .page {
-            display: none
-        }
-
-        .page.active {
-            display: block
-        }
-
-        .chat-layout {
-            max-width: 960px;
-            margin: 24px auto;
-            padding: 0 20px
-        }
-
-        .chat-thread {
-            display: flex;
-            flex-direction: column;
-            gap: 14px
-        }
-
-        .chat-bubble {
-            background: #ffffff;
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 14px 16px;
-            box-shadow: 0 6px 20px rgba(20, 30, 60, 0.08)
-        }
-
-        .chat-bubble.user {
-            align-self: flex-end;
-            background: #edf6f7;
-            border-color: #cfe3e6
-        }
-
-        .chat-title {
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--text)
-        }
-
-        .chat-text {
-            font-size: 13px;
-            color: var(--text);
-            line-height: 1.5;
-            margin-top: 6px
-        }
-
-        .chat-input {
-            margin-top: 16px;
-            display: flex;
-            gap: 10px;
-            align-items: center
-        }
-
-        .chat-input textarea {
-            flex: 1;
-            min-height: 48px;
-            border-radius: 10px;
-            border: 1px solid #d7e2ef;
-            background: #ffffff;
-            padding: 10px;
-            font-size: 13px;
-            color: var(--text);
-            resize: vertical
-        }
-
-        .chatgpt-page {
-            min-height: 70vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 40px 20px
-        }
-
-        .chatgpt-hero {
-            font-size: 32px;
-            font-weight: 600;
-            color: var(--text);
-            margin-bottom: 28px;
-            text-align: center
-        }
-
-        .chatgpt-input {
-            width: 100%;
-            max-width: 760px;
-            background: #ffffff;
-            border: 1px solid #d7e2ef;
-            border-radius: 26px;
-            padding: 10px 12px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            box-shadow: 0 10px 30px rgba(20, 30, 60, 0.08)
-        }
-
-        .chatgpt-input textarea {
-            flex: 1;
-            border: none;
-            outline: none;
-            resize: none;
-            font-size: 14px;
-            color: var(--text);
-            background: transparent;
-            min-height: 28px
-        }
-
-        .icon-btn {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            border: 1px solid #d7e2ef;
-            background: #ffffff;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            font-size: 18px;
-            color: var(--text)
-        }
-
-        .icon-btn.primary {
-            background: var(--accent);
-            color: #ffffff;
-            border-color: var(--accent)
-        }
-
-        .attach-panel {
-            width: 100%;
-            max-width: 760px;
-            margin-top: 18px;
-            background: #ffffff;
-            border: 1px solid #e4ebf3;
-            border-radius: 16px;
-            padding: 16px;
-            box-shadow: 0 6px 20px rgba(20, 30, 60, 0.08);
-            display: none
-        }
-
-        .attach-panel.active {
-            display: block
-        }
-
-        @media (max-width: 1024px) {
-            .main-grid {
-                grid-template-columns: repeat(auto-fit, minmax(300px, 1fr))
-            }
-        }
-
-        @media (max-width: 768px) {
-            .vitals {
-                grid-template-columns: repeat(2, 1fr)
-            }
-
-            .main-grid {
-                grid-template-columns: 1fr
-            }
-
-            .header {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 10px
-            }
-
-            .header-right {
-                flex-direction: column;
-                align-items: flex-start
-            }
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HealthGuard — Private AI Health Agent</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f4f7fb;--surface:#fff;--card:#fff;--border:#e4ebf3;--accent:#1f7a8c;--green:#2f855a;--yellow:#b7791f;--red:#c53030;--text:#1a202c;--muted:#5a6b82}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Inter",system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.mono{font-family:SFMono-Regular,Menlo,Monaco,Consolas,monospace}
+.header{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--border);background:rgba(255,255,255,.92);backdrop-filter:blur(12px)}
+.logo{display:flex;flex-direction:column;gap:2px}
+.logo h1{font-size:18px;letter-spacing:1px;color:var(--accent)}
+.logo span{font-size:10px;color:var(--muted)}
+.nav{display:flex;gap:10px;font-size:11px}
+.nav a{color:var(--muted);text-decoration:none;text-transform:uppercase;letter-spacing:1px;padding:6px 10px;border-radius:6px;border:1px solid transparent;cursor:pointer}
+.nav a.active{color:var(--accent);background:rgba(0,212,255,.1);border-color:rgba(0,212,255,.3)}
+.header-right{display:flex;align-items:center;gap:16px;font-size:10px;color:var(--muted)}
+.privacy{display:flex;align-items:center;gap:8px}
+.pulse-dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px rgba(47,133,90,.4);animation:pulse 2s infinite}
+@keyframes pulse{0%{transform:scale(1);opacity:1}50%{transform:scale(2.5);opacity:.4}100%{transform:scale(1);opacity:1}}
+.status-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:14px 20px;border-bottom:1px solid var(--border);background:var(--surface);font-size:11px;color:var(--muted);font-family:SFMono-Regular,Menlo,Monaco,Consolas,monospace}
+.status-pill{display:flex;align-items:center;gap:8px}
+.status-pill strong{color:var(--text);font-weight:600}
+.grid{padding:16px 20px;display:grid;gap:16px}
+.vitals{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;box-shadow:0 6px 20px rgba(20,30,60,.08)}
+.card-title{font-size:11px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px}
+.metric{display:flex;align-items:center;justify-content:space-between}
+.metric-value{font-size:32px;font-weight:700;color:var(--text)}
+.metric-sub{font-size:10px;color:var(--muted)}
+.badge{font-size:9px;padding:3px 6px;border-radius:4px;letter-spacing:1px;font-family:SFMono-Regular,Menlo,Monaco,Consolas,monospace}
+.badge.green{background:rgba(47,133,90,.12);color:var(--green)}
+.badge.yellow{background:rgba(183,121,31,.12);color:var(--yellow)}
+.badge.red{background:rgba(197,48,48,.12);color:var(--red)}
+.badge.small{font-size:8px;padding:2px 6px}
+.main-grid{display:grid;grid-template-columns:1.2fr 1.2fr 320px;gap:16px}
+.chart-wrap{height:220px}
+.actions-list,.feed-list{display:flex;flex-direction:column;gap:10px;max-height:300px;overflow-y:auto}
+.action-item{border-left:3px solid var(--border);padding:10px 12px;background:#fff;border-radius:8px;font-size:10px;color:var(--muted);display:grid;gap:6px}
+.action-item.red{border-left-color:var(--red)}
+.action-item.yellow{border-left-color:var(--yellow)}
+.action-item.green{border-left-color:var(--green)}
+.action-header{display:flex;justify-content:space-between;color:var(--text)}
+.btn{padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text);font-size:11px;cursor:pointer;transition:.2s;width:100%}
+.btn:hover{border-color:var(--accent);background:rgba(31,122,140,.12)}
+.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600}
+.btn.primary:disabled{opacity:.5;cursor:not-allowed}
+.btn.small{width:auto;padding:6px 10px;font-size:10px}
+.btn.toggle-active{border-color:var(--accent);color:var(--accent);background:rgba(0,212,255,.08)}
+.drop-zone{border:1px dashed #c9d6e6;border-radius:10px;padding:18px;text-align:center;color:var(--muted);cursor:pointer;transition:.2s}
+.drop-zone:hover,.drop-zone.hover{border-color:var(--accent);background:rgba(31,122,140,.06)}
+.hidden-input{display:none}
+.filename{font-size:10px;color:var(--muted);margin-top:6px}
+.state{font-size:10px;color:var(--muted)}
+.feed-item{font-size:10px;color:var(--muted);animation:fadeIn .3s ease;font-family:SFMono-Regular,Menlo,Monaco,Consolas,monospace}
+.feed-item.cyan{color:var(--accent)}.feed-item.green{color:var(--green)}.feed-item.yellow{color:var(--yellow)}.feed-item.red{color:var(--red)}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+.page{display:none}.page.active{display:block}
+.chatgpt-page{min-height:70vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px}
+.chatgpt-hero{font-size:32px;font-weight:600;color:var(--text);margin-bottom:28px;text-align:center}
+.chatgpt-input{width:100%;max-width:760px;background:#fff;border:1px solid #d7e2ef;border-radius:26px;padding:10px 12px;display:flex;align-items:center;gap:10px;box-shadow:0 10px 30px rgba(20,30,60,.08)}
+.chatgpt-input textarea{flex:1;border:none;outline:none;resize:none;font-size:14px;color:var(--text);background:transparent;min-height:28px}
+.icon-btn{width:36px;height:36px;border-radius:50%;border:1px solid #d7e2ef;background:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;color:var(--text)}
+.icon-btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.attach-panel{width:100%;max-width:760px;margin-top:18px;background:#fff;border:1px solid #e4ebf3;border-radius:16px;padding:16px;box-shadow:0 6px 20px rgba(20,30,60,.08);display:none}
+.attach-panel.active{display:block}
+.input-inline{padding:6px 8px;border-radius:6px;border:1px solid #d7e2ef;background:#fff;font-size:11px;width:80px}
+.device-result{font-size:12px;color:var(--text);margin-top:8px}
+.device-actions{display:flex;gap:8px;margin-top:8px}
+.empty-state{text-align:center;padding:30px 20px;color:var(--muted);font-size:13px}
+.empty-state .icon{font-size:32px;margin-bottom:8px}
+.vital-input-row{display:flex;gap:8px;align-items:center;margin-top:8px}
+.vital-input-row input{padding:8px;border:1px solid var(--border);border-radius:6px;font-size:12px;width:80px}
+.vital-input-row select{padding:8px;border:1px solid var(--border);border-radius:6px;font-size:12px}
+.history-item{padding:12px 14px;border:1px solid var(--border);border-radius:8px;background:#fff;margin-bottom:8px}
+.history-item .time{font-size:10px;color:var(--muted);font-family:monospace}
+.history-item .type{font-size:9px;padding:2px 6px;border-radius:4px;text-transform:uppercase;font-weight:600}
+.doctor-section{padding:16px;margin-bottom:12px;border:1px solid var(--border);border-radius:10px;background:#fff}
+.doctor-section h3{font-size:14px;color:var(--accent);margin-bottom:8px}
+.doctor-section p{font-size:12px;line-height:1.6;color:var(--text)}
+.patient-selector{display:flex;gap:8px;align-items:center;margin-bottom:12px}
+.patient-selector select{padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:11px;background:#fff}
+.bp-line{stroke-dasharray:1000;stroke-dashoffset:1000;animation:draw 1.5s ease forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+@keyframes alertPulse{0%,100%{box-shadow:0 0 30px rgba(255,68,102,.12)}50%{box-shadow:0 0 40px rgba(255,68,102,.22)}}
+.card.status-normal{background:#fff;border-color:#e4ebf3}
+.card.status-watch{background:linear-gradient(135deg,#fff,#fff7e6);border-color:#b7791f44}
+.card.status-alert{background:linear-gradient(135deg,#fff,#ffe8e8);border-color:#c5303044;animation:alertPulse 2.5s ease-in-out infinite}
+.card.status-watch .metric-value{color:var(--yellow)}
+.card.status-alert .metric-value{color:var(--red)}
+details summary{cursor:pointer;list-style:none}
+details summary::-webkit-details-marker{display:none}
+.footer{padding:16px 20px;border-top:1px solid var(--border);font-size:10px;color:var(--muted);text-align:center}
+.error-banner{display:none;padding:8px 12px;margin:12px 20px;border:1px solid var(--red);color:var(--red);font-size:11px;border-radius:6px;background:#fff5f5}
+.error-banner.show{display:block}
+@media(max-width:1024px){.main-grid{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}}
+@media(max-width:768px){.vitals{grid-template-columns:repeat(2,1fr)}.main-grid{grid-template-columns:1fr}.header{flex-direction:column;align-items:flex-start;gap:10px}}
+</style>
 </head>
-
 <body>
-    <div class="header">
-        <div class="logo">
-            <h1>HEALTHGUARD</h1>
-            <span>PRIVATE AI HEALTH AGENT</span>
+
+<div class="header">
+  <div class="logo"><h1>HEALTHGUARD</h1><span>PRIVATE AI HEALTH AGENT</span></div>
+  <div class="nav" id="navTabs">
+    <a class="active" href="#" data-page="dashboard">Dashboard</a>
+    <a href="#" data-page="upload">Upload</a>
+    <a href="#" data-page="history">History</a>
+    <a href="#" data-page="doctor">Doctor</a>
+  </div>
+  <div class="header-right">
+    <div class="privacy"><span class="pulse-dot"></span>PRIVACY ACTIVE · AKASH · VENICE · E2E</div>
+    <div>
+      <select id="patientSelect" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:10px;background:#fff"></select>
+    </div>
+  </div>
+</div>
+
+<div id="errorBanner" class="error-banner">Agent unreachable</div>
+
+<!-- ==================== DASHBOARD PAGE ==================== -->
+<div id="page-dashboard" class="page active">
+  <div class="status-bar">
+    <div class="status-pill"><span class="pulse-dot"></span><strong id="agentStatus">IDLE</strong><span id="loopInfo">Loop: 0</span></div>
+    <div class="status-pill">Uptime: <strong id="uptime">--</strong></div>
+    <div class="status-pill">Akash Node: <strong id="nodeId">--</strong></div>
+    <div class="status-pill">Storage: <strong id="storageMount">/data</strong></div>
+  </div>
+
+  <div class="grid">
+    <!-- Vitals Cards -->
+    <div class="vitals">
+      <div class="card status-normal" id="cardBp">
+        <div class="card-title">Blood Pressure</div>
+        <div class="metric">
+          <div><div class="metric-value" id="bpValue">--</div><div class="metric-sub" id="bpTrend">No data yet</div></div>
+          <div class="badge green" id="bpBadge">--</div>
         </div>
-        <div class="nav" id="navTabs">
-            <a class="active" href="#" data-page="dashboard">Dashboard</a>
-            <a href="#" data-page="upload">Upload</a>
-            <a href="#" data-page="history">History</a>
-            <a href="#" data-page="doctor">Doctor</a>
+      </div>
+      <div class="card status-normal" id="cardGlucose">
+        <div class="card-title">Glucose</div>
+        <div class="metric">
+          <div><div class="metric-value" id="glucoseValue">--</div><div class="metric-sub" id="glucoseTrend">No data yet</div></div>
+          <div class="badge green" id="glucoseBadge">--</div>
         </div>
-        <div class="header-right">
-            <div class="privacy"><span class="pulse-dot"></span>PRIVACY ACTIVE · AKASH · VENICE · E2E</div>
-            <div id="patientName">Patient: —</div>
+      </div>
+      <div class="card status-normal" id="cardPain">
+        <div class="card-title">Pain Level</div>
+        <div class="metric">
+          <div><div class="metric-value" id="painValue">--</div><div class="metric-sub" id="painTrend">No data yet</div></div>
+          <div class="badge green" id="painBadge">--</div>
         </div>
+      </div>
+      <div class="card status-normal" id="cardTemp">
+        <div class="card-title">Temperature</div>
+        <div class="metric">
+          <div><div class="metric-value" id="tempValue">--</div><div class="metric-sub" id="tempTrend">No data yet</div></div>
+          <div class="badge green" id="tempBadge">--</div>
+        </div>
+      </div>
     </div>
 
-    <div id="errorBanner" class="error-banner">Agent unreachable</div>
-
-    <div id="page-dashboard" class="page active">
-        <div class="status-bar">
-            <div class="status-pill"><span class="pulse-dot"></span><strong id="agentStatus">IDLE</strong><span
-                    id="loopInfo">Loop: —</span></div>
-            <div class="status-pill">Uptime: <strong id="uptime">—</strong></div>
-            <div class="status-pill">Akash Node: <strong id="nodeId">N/A</strong></div>
-            <div class="status-pill">Storage: <strong id="storageMount">/data</strong></div>
-        </div>
-
-        <div class="grid">
-            <div class="vitals">
-                <div class="card status-normal" id="cardBp">
-                    <div class="card-title">Blood Pressure</div>
-                    <div class="metric">
-                        <div>
-                            <div class="metric-value" id="bpValue">—</div>
-                            <div class="metric-sub" id="bpTrend">trend: —</div>
-                        </div>
-                        <div class="badge green" id="bpBadge">NORMAL</div>
-                    </div>
-                </div>
-                <div class="card status-normal" id="cardGlucose">
-                    <div class="card-title">Glucose</div>
-                    <div class="metric">
-                        <div>
-                            <div class="metric-value" id="glucoseValue">—</div>
-                            <div class="metric-sub" id="glucoseTrend">trend: —</div>
-                        </div>
-                        <div class="badge green" id="glucoseBadge">NORMAL</div>
-                    </div>
-                </div>
-                <div class="card status-normal" id="cardPain">
-                    <div class="card-title">Pain Level</div>
-                    <div class="metric">
-                        <div>
-                            <div class="metric-value" id="painValue">—</div>
-                            <div class="metric-sub" id="painTrend">trend: —</div>
-                        </div>
-                        <div class="badge green" id="painBadge">NORMAL</div>
-                    </div>
-                </div>
-                <div class="card status-watch" id="cardMed">
-                    <div class="card-title">Medication Adherence</div>
-                    <div class="metric">
-                        <div>
-                            <div class="metric-value" id="medValue">6/7</div>
-                            <div class="metric-sub" id="medUnit">doses</div>
-                        </div>
-                        <div class="badge yellow" id="medBadge">WATCH</div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="main-grid">
-                <div>
-                    <div class="card">
-                        <div class="card-title">BP Trend (7 days)</div>
-                        <div class="chart-wrap" id="bpChart"></div>
-                    </div>
-                    <div class="card" style="margin-top:16px">
-                        <div class="card-title">Autonomous Actions Log</div>
-                        <div class="actions-list" id="actionsList"></div>
-                    </div>
-                </div>
-
-                <div>
-                    <div class="card">
-                        <div class="card-title">Upload Your Photo</div>
-                        <div style="color:var(--text);font-size:13px;line-height:1.6">
-                            Add a photo when you're ready. We’ll keep it private and share a clear summary back to you.
-                        </div>
-                        <div style="margin-top:12px">
-                            <button class="btn primary" id="goUploadBtn">Go to Upload</button>
-                        </div>
-                    </div>
-                    <div class="card" style="margin-top:16px">
-                        <details>
-                            <summary class="card-title">🔒 How your privacy is protected ▾</summary>
-                            <div class="pipeline" style="margin-top:10px">
-                                <div class="step">
-                                    <div class="step-icon">♪</div>
-                                    <div class="step-body">
-                                        <div class="step-title">Venice STT</div>
-                                        <div class="step-model">Whisper Large V3</div>
-                                        <div class="step-note">Audio deleted immediately</div>
-                                    </div>
-                                </div>
-                                <div class="connector"></div>
-                                <div class="step">
-                                    <div class="step-icon">◎</div>
-                                    <div class="step-body">
-                                        <div class="step-title">Venice Vision</div>
-                                        <div class="step-model">Qwen2.5-VL 235B</div>
-                                        <div class="step-note">Image deleted immediately</div>
-                                    </div>
-                                </div>
-                                <div class="connector"></div>
-                                <div class="step">
-                                    <div class="step-icon"
-                                        style="background:#00ff8822;color:#00ff88;border-color:#00ff8844">⬡</div>
-                                    <div class="step-body">
-                                        <div class="step-title">AkashML</div>
-                                        <div class="step-model">Llama-3.3-70B</div>
-                                        <div class="step-note">Structured text only</div>
-                                    </div>
-                                </div>
-                                <div class="connector"></div>
-                                <div class="step">
-                                    <div class="step-icon">♫</div>
-                                    <div class="step-body">
-                                        <div class="step-title">Venice TTS</div>
-                                        <div class="step-model">Kokoro</div>
-                                        <div class="step-note">Clean text → audio</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </details>
-                    </div>
-                </div>
-
-                <div>
-                    <div class="card">
-                        <div class="feed-header" style="justify-content:space-between">
-                            <div style="display:flex;align-items:center;gap:8px">
-                                <div class="pulse-dot"></div>
-                                <div class="card-title" style="margin:0">Live Updates</div>
-                            </div>
-                            <div class="mono" style="font-size:9px">
-                                <button class="btn" id="feedPatientBtn" style="width:auto;padding:6px 8px">Patient
-                                    View</button>
-                                <button class="btn" id="feedDevBtn" style="width:auto;padding:6px 8px">Developer
-                                    View</button>
-                            </div>
-                        </div>
-                        <div class="feed-list" id="feedList" style="margin-top:10px"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
+    <!-- Quick Add Vitals -->
+    <div class="card" id="quickAddCard">
+      <div class="card-title">Quick Add Vital Reading</div>
+      <div class="vital-input-row">
+        <select id="vitalType">
+          <option value="bp">Blood Pressure</option>
+          <option value="glucose">Glucose</option>
+          <option value="pain_level">Pain Level</option>
+          <option value="temperature">Temperature</option>
+          <option value="heart_rate">Heart Rate</option>
+          <option value="oxygen_saturation">O2 Saturation</option>
+        </select>
+        <input id="vitalVal1" placeholder="Value" type="number" step="any">
+        <input id="vitalVal2" placeholder="/dia" type="number" step="any" style="display:none">
+        <button class="btn small primary" id="addVitalBtn">Save</button>
+        <span id="vitalSaveMsg" style="font-size:10px;color:var(--green)"></span>
+      </div>
     </div>
 
-    <div id="page-upload" class="page">
-        <div class="chatgpt-page">
-            <div class="chatgpt-hero">What are you working on?</div>
-            <div class="chatgpt-input">
-                <button class="icon-btn" id="attachToggle">+</button>
-                <textarea id="chatPrompt" placeholder="Describe your concern..."></textarea>
-                <button class="icon-btn primary" id="sendPrompt">➤</button>
-            </div>
-            <div id="attachPanel" class="attach-panel">
-                <div class="card-title">Attach a photo or device reading</div>
-                <div class="note-footer" style="margin-top:-2px;margin-bottom:8px">
-                    <div>Use the main text box above for context</div>
-                    <div></div>
-                </div>
-                <div class="note-label" style="margin:0">Attach a photo (we’ll detect if it’s a device screen)</div>
-                <div class="row" style="margin-top:8px">
-                    <div id="photoDrop" class="drop-zone">
-                        <div class="icon" style="color:var(--accent)">
-                            <svg width="32" height="24" viewBox="0 0 32 24" fill="none"
-                                xmlns="http://www.w3.org/2000/svg">
-                                <rect x="2" y="6" width="28" height="16" rx="3" stroke="currentColor"
-                                    stroke-width="2" />
-                                <circle cx="16" cy="14" r="5" stroke="currentColor" stroke-width="2" />
-                                <rect x="8" y="2" width="6" height="4" rx="1" fill="currentColor" />
-                            </svg>
-                        </div>
-                        <div class="text" id="photoDropText">Take or upload a photo</div>
-                        <div class="subtext" id="photoDropSubtext">We’ll read device numbers automatically if present
-                        </div>
-                    </div>
-                    <input id="photoInput" class="hidden-input" type="file" accept="image/*">
-                </div>
-                <div class="filename" id="photoName">No file selected</div>
-                <div class="row">
-                    <button class="btn primary" id="photoAnalyzeBtn" disabled>Analyze Privately</button>
-                </div>
-                <div class="state" style="text-align:center">🔒 Your photo is deleted the moment analysis is complete
-                </div>
-                <div id="deviceResult" class="device-result"></div>
-                <div class="state" id="uploadState">idle</div>
-                <div class="state" id="uploadResult"></div>
-            </div>
-        </div>
-    </div>
-
-    <div class="footer">HealthGuard v1.0 · Built on Akash · Zero data retention</div>
-
-    <script>
-        let currentPatientId = null;
-        let seenAudit = new Set();
-
-        const el = (id) => document.getElementById(id);
-
-        function showError(show) {
-            el('errorBanner').classList.toggle('show', show);
-        }
-
-        async function fetchJSON(url) {
-            const res = await fetch(url);
-            if (!res.ok) throw new Error('bad response');
-            return res.json();
-        }
-
-        function formatTime(ts) {
-            if (!ts) return '—';
-            if (/^\d{2}:\d{2}:\d{2}$/.test(ts)) return ts;
-            return ts.substring(11, 19);
-        }
-
-        function setBadge(metric, status) {
-            const map = { normal: 'green', watch: 'yellow', alert: 'red' };
-            const badge = el(metric + 'Badge');
-            badge.className = 'badge ' + map[status];
-            badge.textContent = status.toUpperCase();
-            const card = el('card' + metric.charAt(0).toUpperCase() + metric.slice(1));
-            card.classList.remove('status-normal', 'status-watch', 'status-alert');
-            card.classList.add(`status-${status}`);
-        }
-
-        function statusForMetric(metric, value) {
-            if (value === null || value === undefined) return 'watch';
-            if (metric === 'bp_systolic') {
-                if (value >= 140) return 'alert';
-                if (value >= 120) return 'watch';
-                return 'normal';
-            }
-            if (metric === 'glucose') {
-                if (value >= 180) return 'alert';
-                if (value >= 100) return 'watch';
-                return 'normal';
-            }
-            if (metric === 'pain_level') {
-                if (value >= 7) return 'alert';
-                if (value >= 4) return 'watch';
-                return 'normal';
-            }
-            return 'watch';
-        }
-
-        function trendArrow(values) {
-            if (values.length < 2) return null;
-            const delta = values[0] - values[1];
-            if (delta > 0.1) return '↑';
-            if (delta < -0.1) return '↓';
-            return '→';
-        }
-
-        function getDemoBpPoints() {
-            const values = [128, 131, 138, 141, 143, 147, 148];
-            const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-            return values.map((v, i) => ({ day: days[i], value: v }));
-        }
-
-        function smoothPath(points) {
-            if (points.length < 2) return '';
-            const d = [];
-            for (let i = 0; i < points.length; i++) {
-                const p = points[i];
-                if (i === 0) {
-                    d.push(`M ${p.x} ${p.y}`);
-                } else {
-                    const prev = points[i - 1];
-                    const next = points[i + 1] || p;
-                    const dx = (next.x - prev.x) / 6;
-                    const cp1x = prev.x + dx;
-                    const cp1y = prev.y + (p.y - prev.y) / 3;
-                    const cp2x = p.x - dx;
-                    const cp2y = p.y - (p.y - prev.y) / 3;
-                    d.push(`C ${cp1x} ${cp1y} ${cp2x} ${cp2y} ${p.x} ${p.y}`);
-                }
-            }
-            return d.join(' ');
-        }
-
-        function renderBpChart(points) {
-            const wrap = el('bpChart');
-            if (points.length < 2) points = getDemoBpPoints();
-            const w = 520, h = 200, pad = 26;
-            const values = points.map(p => p.value);
-            const min = Math.min(...values, 100);
-            const max = Math.max(...values, 160);
-            const stepX = (w - pad * 2) / (points.length - 1 || 1);
-            const scaleY = (val) => h - pad - ((val - min) / (max - min || 1)) * (h - pad * 2);
-            const safeY = scaleY(140);
-            const pointsXY = points.map((p, i) => {
-                const x = pad + i * stepX;
-                const y = scaleY(p.value);
-                return { x, y, value: p.value, day: p.day };
-            });
-            const linePath = smoothPath(pointsXY);
-            const polyline = pointsXY.map(p => `${p.x},${p.y}`).join(' ');
-            const area = `${pad},${h - pad} ${polyline} ${w - pad},${h - pad}`;
-            const dots = pointsXY.map(p =>
-                `<circle cx="${p.x}" cy="${p.y}" r="4" fill="#f4f7fb" stroke="#c53030" stroke-width="2">
-          <title>${p.day} · ${p.value} mmHg</title>
-        </circle>`
-            ).join('');
-            const valuesText = pointsXY.map(p =>
-                `<text x="${p.x}" y="${p.y - 8}" fill="#c53030" font-size="9" text-anchor="middle">${p.value}</text>`
-            ).join('');
-            const labels = pointsXY.map(p =>
-                `<text x="${p.x}" y="${h - 6}" fill="#4a6080" font-size="9" text-anchor="middle">${p.day}</text>`
-            ).join('');
-            wrap.innerHTML = `
-        <svg width="100%" height="100%" viewBox="0 0 ${w} ${h}">
-          <polygon points="${area}" fill="rgba(197,48,48,0.08)"/>
-          <line x1="${pad}" y1="${safeY}" x2="${w - pad}" y2="${safeY}" stroke="#2f855a" stroke-dasharray="4 4" opacity="0.6"/>
-          <path class="bp-line" d="${linePath}" fill="none" stroke="#c53030" stroke-width="2"/>
-          ${dots}
-          ${valuesText}
-          ${labels}
-        </svg>`;
-        }
-
-        const demoVitals = {
-            bp: { sys: 148, dia: 92, status: 'alert', trend: '↑' },
-            glucose: { value: 142, status: 'watch', trend: '↑' },
-            pain: { value: 6, status: 'alert', trend: '↑' },
-            med: { value: '6/7', unit: 'doses', status: 'watch', trend: '-1' },
-        };
-
-        const demoActions = [
-            {
-                severity: 1, time: 'Today 09:16',
-                patientMessage: 'Your doctor was notified about your blood pressure at 09:16.',
-                message: 'BP elevated 3 consecutive days. Email alert sent to Dr. Patel.',
-                model: 'Llama-3.3-70B', action: 'Email delivered · 200 OK', action_id: 'b8e2f1'
-            },
-            {
-                severity: 2, time: 'Yesterday 08:00',
-                patientMessage: 'We noticed a missed medication. A reminder was scheduled for tonight.',
-                message: 'Evening medication missed. Reminder rescheduled for tonight.',
-                model: 'Rule engine', action: 'Push notification sent'
-            },
-            {
-                severity: 3, time: 'Monday',
-                patientMessage: 'Your weekly health summary was shared with your doctor.',
-                message: 'Weekly health summary generated and dispatched to doctor.',
-                model: 'Llama-3.3-70B', action: 'Venice TTS + ImgGen · delivered'
-            },
-        ];
-
-        function getRelativeTimes(count) {
-            const now = new Date();
-            return Array.from({ length: count }).map((_, i) => {
-                const t = new Date(now.getTime() - (count - 1 - i) * 60000);
-                return t.toTimeString().substring(0, 8);
-            });
-        }
-
-        function getDemoFeed() {
-            const times = getRelativeTimes(10);
-            return [
-                { time: times[0], icon: '↻', color: 'cyan', message: 'Agent loop started', patientMessage: '✓ Your health data was checked.' },
-                { time: times[1], icon: '◈', color: 'grey', message: 'SQLite read — 7 day context loaded', patientMessage: '✓ Your recent history was reviewed.' },
-                { time: times[2], icon: '⬡', color: 'cyan', message: 'AkashML analyzing patient data', patientMessage: '✓ We are reviewing your information.' },
-                { time: times[3], icon: '✓', color: 'green', message: 'No anomaly detected. Sleeping 60s', patientMessage: '✓ Everything looks normal right now.' },
-                { time: times[4], icon: '↻', color: 'cyan', message: 'Agent loop started', patientMessage: '✓ Routine check completed.' },
-                { time: times[5], icon: '◈', color: 'grey', message: 'SQLite read — 3 patients loaded', patientMessage: '✓ Your latest data was read securely.' },
-                { time: times[6], icon: '⚡', color: 'red', message: 'ALERT triggered — BP elevated', patientMessage: '⚠ Your doctor was notified.' },
-                { time: times[7], icon: '→', color: 'yellow', message: 'Email sent to doctor', patientMessage: '⚠ A follow-up message was sent.' },
-                { time: times[8], icon: '✓', color: 'green', message: '200 OK — receipt logged', patientMessage: '✓ Your care team received the update.' },
-                { time: times[9], icon: '✓', color: 'green', message: 'Loop idle', patientMessage: '✓ Running normally.' },
-            ];
-        }
-
-        function setFallbackVitals() {
-            el('bpValue').textContent = `${demoVitals.bp.sys}/${demoVitals.bp.dia} mmHg`;
-            el('glucoseValue').textContent = `${demoVitals.glucose.value} mg/dL`;
-            el('painValue').textContent = `${demoVitals.pain.value}/10`;
-            el('medValue').textContent = demoVitals.med.value;
-            el('medUnit').textContent = demoVitals.med.unit;
-            el('medBadge').className = 'badge yellow';
-            el('medBadge').textContent = demoVitals.med.status.toUpperCase();
-            el('bpTrend').textContent = `trend: ${demoVitals.bp.trend}`;
-            el('glucoseTrend').textContent = `trend: ${demoVitals.glucose.trend}`;
-            el('painTrend').textContent = `trend: ${demoVitals.pain.trend}`;
-            setBadge('bp', demoVitals.bp.status);
-            setBadge('glucose', demoVitals.glucose.status);
-            setBadge('pain', demoVitals.pain.status);
-        }
-
-        async function loadPatient() {
-            try {
-                const patients = await fetchJSON('/patients');
-                if (!patients.length) {
-                    currentPatientId = null;
-                    el('patientName').textContent = 'Patient: —';
-                    setFallbackVitals();
-                    renderBpChart(getDemoBpPoints());
-                    return;
-                }
-                currentPatientId = patients[0].id;
-                const detail = await fetchJSON(`/patient/${currentPatientId}`);
-                el('patientName').textContent = `Patient: ${detail.patient?.name || currentPatientId.slice(0, 12) + '...'}`;
-                await refreshVitals(detail);
-            } catch (e) {
-                showError(true);
-                setFallbackVitals();
-                renderBpChart(getDemoBpPoints());
-            }
-        }
-
-        async function refreshVitals(detail) {
-            const latest = detail.latest_vitals || {};
-            const bpSys = latest.bp_systolic?.value ?? demoVitals.bp.sys;
-            const bpDia = latest.bp_diastolic?.value ?? demoVitals.bp.dia;
-            const glucose = latest.glucose?.value ?? demoVitals.glucose.value;
-            const pain = latest.pain_level?.value ?? demoVitals.pain.value;
-
-            el('bpValue').textContent = `${bpSys}/${bpDia} mmHg`;
-            el('glucoseValue').textContent = `${glucose} mg/dL`;
-            el('painValue').textContent = `${pain}/10`;
-
-            setBadge('bp', statusForMetric('bp_systolic', bpSys));
-            setBadge('glucose', statusForMetric('glucose', glucose));
-            setBadge('pain', statusForMetric('pain_level', pain));
-
-            try {
-                const history = await fetchJSON(`/patient/${currentPatientId}/vitals?days=7`);
-                const bpHistory = history.filter(v => v.metric_type === 'bp_systolic').slice(0, 7);
-                el('bpTrend').textContent = `trend: ${trendArrow(bpHistory.map(v => v.value)) || demoVitals.bp.trend}`;
-                const glucoseHistory = history.filter(v => v.metric_type === 'glucose').slice(0, 7);
-                el('glucoseTrend').textContent = `trend: ${trendArrow(glucoseHistory.map(v => v.value)) || demoVitals.glucose.trend}`;
-                const painHistory = history.filter(v => v.metric_type === 'pain_level').slice(0, 7);
-                el('painTrend').textContent = `trend: ${trendArrow(painHistory.map(v => v.value)) || demoVitals.pain.trend}`;
-
-                const dayMap = {};
-                history.filter(v => v.metric_type === 'bp_systolic').forEach(v => {
-                    const day = v.timestamp.substring(5, 10);
-                    if (!dayMap[day]) dayMap[day] = v.value;
-                });
-                const chartPoints = Object.keys(dayMap).slice(-7).map(d => ({ day: d, value: dayMap[d] }));
-                renderBpChart(chartPoints.length ? chartPoints : getDemoBpPoints());
-            } catch (e) {
-                renderBpChart(getDemoBpPoints());
-            }
-        }
-
-        async function refreshStatus() {
-            try {
-                const st = await fetchJSON('/status');
-                el('agentStatus').textContent = st.running ? 'RUNNING' : 'IDLE';
-                el('uptime').textContent = st.uptime_seconds ? `${Math.round(st.uptime_seconds)}s` : '—';
-                el('loopInfo').textContent = `Loop: ${st.loop_count || 0}`;
-                el('nodeId').textContent = st.node_id || 'provider-us-east-07.akash.network';
-                showError(false);
-            } catch (e) {
-                showError(true);
-            }
-        }
-
-        function renderActions(actions) {
-            const list = el('actionsList');
-            list.innerHTML = '';
-            actions.forEach(a => {
-                const sevClass = a.severity === 1 ? 'red' : a.severity === 2 ? 'yellow' : 'green';
-                const item = document.createElement('div');
-                item.className = `action-item ${sevClass}`;
-                item.innerHTML = `
-          <div class="action-header">
-            <span class="badge small ${sevClass}">sev${a.severity}</span>
-            <span class="mono">${a.time || formatTime(a.timestamp)}</span>
+    <div class="main-grid">
+      <!-- Left: BP Chart + Actions -->
+      <div>
+        <div class="card">
+          <div class="card-title">BP Trend (7 days)</div>
+          <div class="chart-wrap" id="bpChart">
+            <div class="empty-state"><div class="icon">📊</div>Add blood pressure readings to see your trend chart</div>
           </div>
-          <div style="color:var(--text);font-size:12px">${a.patientMessage || 'Your care team was notified.'}</div>
-          <details>
-            <summary class="mono" style="font-size:9px;color:#7f8bb3">Technical details ▾</summary>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
-              <span class="badge small mono">${a.model || 'rule engine'}</span>
-              <span class="badge small mono">${a.action || ''}</span>
-              ${a.action_id ? `<span class="badge small mono">id ${a.action_id}</span>` : ''}
+        </div>
+        <div class="card" style="margin-top:16px">
+          <div class="card-title">Alerts & Actions</div>
+          <div class="actions-list" id="actionsList">
+            <div class="empty-state"><div class="icon">🔔</div>No alerts yet. Alerts appear when AI detects something important.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Center: Upload + Privacy -->
+      <div>
+        <div class="card">
+          <div class="card-title">Upload Your Photo</div>
+          <div style="color:var(--text);font-size:13px;line-height:1.6">
+            Upload a photo of any health concern. Our AI will analyze it in real-time and provide clinical assessment.
+          </div>
+          <div style="margin-top:12px"><button class="btn primary" id="goUploadBtn">Go to Upload</button></div>
+        </div>
+        <div class="card" style="margin-top:16px">
+          <div class="card-title">Recent Analysis</div>
+          <div id="recentAnalysis">
+            <div class="empty-state"><div class="icon">🔬</div>Upload a photo to see AI analysis results here</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Live Feed -->
+      <div>
+        <div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div style="display:flex;align-items:center;gap:8px">
+              <div class="pulse-dot"></div>
+              <div class="card-title" style="margin:0">Live Updates</div>
             </div>
-            <div class="mono" style="font-size:9px;color:#7f8bb3;margin-top:6px">${a.message || ''}</div>
-          </details>
-        `;
-                list.appendChild(item);
-            });
-        }
+            <div class="mono" style="font-size:9px">
+              <button class="btn toggle-active" id="feedPatientBtn" style="width:auto;padding:4px 8px">Patient</button>
+              <button class="btn" id="feedDevBtn" style="width:auto;padding:4px 8px">Dev</button>
+            </div>
+          </div>
+          <div class="feed-list" id="feedList" style="margin-top:10px">
+            <div class="empty-state" style="padding:16px"><div class="icon">📡</div>Live events will appear here</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
-        async function refreshActions() {
-            if (!currentPatientId) return;
+<!-- ==================== UPLOAD PAGE ==================== -->
+<div id="page-upload" class="page">
+  <div class="chatgpt-page">
+    <div class="chatgpt-hero">Analyze Your Health Concern</div>
+    <div class="chatgpt-input">
+      <button class="icon-btn" id="attachToggle">+</button>
+      <textarea id="chatPrompt" placeholder="Describe your concern..."></textarea>
+      <button class="icon-btn primary" id="sendPrompt">&#10148;</button>
+    </div>
+    <div id="attachPanel" class="attach-panel">
+      <div class="card-title">Attach a photo</div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:8px">Use the text box above to describe your concern for better analysis</div>
+      <div id="photoDrop" class="drop-zone">
+        <div style="font-size:28px;color:var(--accent)">📷</div>
+        <div style="font-size:12px;color:var(--text)">Take or upload a photo</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:4px">Supports JPEG, PNG, WebP</div>
+      </div>
+      <input id="photoInput" class="hidden-input" type="file" accept="image/*">
+      <div class="filename" id="photoName">No file selected</div>
+      <div style="margin-top:8px"><button class="btn primary" id="photoAnalyzeBtn" disabled>Analyze Privately</button></div>
+      <div class="state" style="text-align:center;margin-top:6px">🔒 Your photo is deleted the moment analysis is complete</div>
+      <div id="deviceResult" class="device-result"></div>
+      <div class="state" id="uploadState"></div>
+      <div id="uploadResult"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== HISTORY PAGE ==================== -->
+<div id="page-history" class="page">
+  <div style="max-width:900px;margin:24px auto;padding:0 20px">
+    <h2 style="font-size:20px;color:var(--text);margin-bottom:16px">Patient History</h2>
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <button class="btn small toggle-active" id="histAllBtn" data-filter="all">All</button>
+      <button class="btn small" id="histVitalsBtn" data-filter="vitals">Vitals</button>
+      <button class="btn small" id="histAnalysisBtn" data-filter="analysis">AI Analysis</button>
+      <button class="btn small" id="histAlertsBtn" data-filter="alerts">Alerts</button>
+    </div>
+    <div id="historyList">
+      <div class="empty-state"><div class="icon">📋</div>No history yet. Add vitals or upload photos to start building your health record.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== DOCTOR PAGE ==================== -->
+<div id="page-doctor" class="page">
+  <div style="max-width:900px;margin:24px auto;padding:0 20px">
+    <h2 style="font-size:20px;color:var(--text);margin-bottom:4px">Doctor AI Report</h2>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:16px">Generate a comprehensive AI-powered clinical report for your doctor based on all stored patient data.</p>
+    <button class="btn primary" id="genReportBtn" style="max-width:300px">Generate Doctor Report</button>
+    <button class="btn" id="genBriefingBtn" style="max-width:300px;margin-left:8px">Audio Patient Briefing</button>
+    <div id="doctorReportArea" style="margin-top:20px">
+      <div class="empty-state"><div class="icon">🩺</div>Click "Generate Doctor Report" to create an AI-powered clinical summary using all your stored health data.</div>
+    </div>
+    <div id="audioBriefingArea" style="margin-top:16px"></div>
+  </div>
+</div>
+
+<div class="footer">HealthGuard v1.0 · Built on Akash · Venice AI · Zero data retention · Hackathon 2026</div>
+
+<script>
+let currentPatientId = null;
+let seenAudit = new Set();
+let feedMode = 'patient';
+const feedEntries = [];
+
+const el = (id) => document.getElementById(id);
+
+function showError(show) { el('errorBanner').classList.toggle('show', show); }
+
+async function fetchJSON(url) {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.json();
+}
+
+function formatTime(ts) {
+    if (!ts) return '--';
+    if (/^\d{2}:\d{2}:\d{2}$/.test(ts)) return ts;
+    return ts.substring(11, 19);
+}
+
+// ── Vital status logic ──
+function statusForMetric(metric, value) {
+    if (value === null || value === undefined) return 'normal';
+    if (metric === 'bp_systolic') { return value >= 140 ? 'alert' : value >= 120 ? 'watch' : 'normal'; }
+    if (metric === 'glucose') { return value >= 180 ? 'alert' : value >= 100 ? 'watch' : 'normal'; }
+    if (metric === 'pain_level') { return value >= 7 ? 'alert' : value >= 4 ? 'watch' : 'normal'; }
+    if (metric === 'temperature') { return value >= 100.4 ? 'alert' : value >= 99.5 ? 'watch' : 'normal'; }
+    return 'normal';
+}
+
+function setBadge(prefix, status) {
+    const map = { normal: 'green', watch: 'yellow', alert: 'red' };
+    const badge = el(prefix + 'Badge');
+    if (!badge) return;
+    badge.className = 'badge ' + (map[status] || 'green');
+    badge.textContent = status.toUpperCase();
+    const cardId = 'card' + prefix.charAt(0).toUpperCase() + prefix.slice(1);
+    const card = el(cardId);
+    if (card) {
+        card.classList.remove('status-normal', 'status-watch', 'status-alert');
+        card.classList.add('status-' + status);
+    }
+}
+
+function trendArrow(values) {
+    if (values.length < 2) return null;
+    const d = values[0] - values[1];
+    return d > 0.1 ? '↑' : d < -0.1 ? '↓' : '→';
+}
+
+// ── Patient loading ──
+async function loadPatients() {
+    try {
+        const patients = await fetchJSON('/patients');
+        const sel = el('patientSelect');
+        sel.innerHTML = '';
+        if (!patients.length) {
+            sel.innerHTML = '<option value="">No patients</option>';
+            currentPatientId = null;
+            return;
+        }
+        patients.forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p.id;
+            opt.textContent = p.id.substring(0, 20);
+            sel.appendChild(opt);
+        });
+        // Try to get patient names
+        currentPatientId = patients[0].id;
+        sel.value = currentPatientId;
+        try {
+            const detail = await fetchJSON('/patient/' + currentPatientId);
+            if (detail.patient && detail.patient.name) {
+                sel.options[0].textContent = detail.patient.name;
+            }
+        } catch(e) {}
+        // Load names for other patients too
+        for (let i = 1; i < Math.min(patients.length, 10); i++) {
             try {
-                const alerts = await fetchJSON(`/alerts?patient_id=${currentPatientId}&limit=12`);
-                const mapped = alerts.map(a => ({
-                    severity: a.severity,
-                    timestamp: a.timestamp,
-                    patientMessage: a.severity === 1
-                        ? 'Your doctor was notified about your health readings.'
-                        : a.severity === 2
-                            ? 'We notified your care team and will follow up.'
-                            : 'Your health data was reviewed and logged.',
-                    message: a.message,
-                    model: 'rule engine',
-                    action: a.action_taken || a.webhook_response || '',
-                }));
-                const merged = mapped.length >= 3 ? mapped : mapped.concat(demoActions.slice(0, 3 - mapped.length));
-                renderActions(merged);
-            } catch (e) {
-                showError(true);
-                renderActions(demoActions);
-            }
+                const d = await fetchJSON('/patient/' + patients[i].id);
+                if (d.patient && d.patient.name) sel.options[i].textContent = d.patient.name;
+            } catch(e) {}
+        }
+    } catch(e) {
+        showError(true);
+    }
+}
+
+el('patientSelect').addEventListener('change', function() {
+    currentPatientId = this.value;
+    refreshAll();
+});
+
+// ── Load real vitals from DB ──
+async function refreshVitals() {
+    if (!currentPatientId) {
+        el('bpValue').textContent = '--';
+        el('glucoseValue').textContent = '--';
+        el('painValue').textContent = '--';
+        el('tempValue').textContent = '--';
+        return;
+    }
+    try {
+        const detail = await fetchJSON('/patient/' + currentPatientId);
+        const latest = detail.latest_vitals || {};
+
+        // BP
+        if (latest.bp_systolic) {
+            const sys = latest.bp_systolic.value;
+            const dia = latest.bp_diastolic ? latest.bp_diastolic.value : '--';
+            el('bpValue').textContent = sys + '/' + dia + ' mmHg';
+            setBadge('bp', statusForMetric('bp_systolic', sys));
+        } else {
+            el('bpValue').textContent = '--';
+            el('bpTrend').textContent = 'No readings yet';
+            setBadge('bp', 'normal');
         }
 
-        const feedEntries = [];
-        let feedMode = 'patient';
-
-        function toPatientMessage(entry) {
-            if (entry.patientMessage) return entry.patientMessage;
-            if (entry.color === 'red') return '⚠ Your doctor was notified about your health readings.';
-            if (entry.color === 'yellow') return '⚠ We took action and will follow up shortly.';
-            if (entry.color === 'green') return '✓ Everything looks stable right now.';
-            return '✓ Your health data was checked.';
+        // Glucose
+        if (latest.glucose) {
+            el('glucoseValue').textContent = latest.glucose.value + ' mg/dL';
+            setBadge('glucose', statusForMetric('glucose', latest.glucose.value));
+        } else {
+            el('glucoseValue').textContent = '--';
+            el('glucoseTrend').textContent = 'No readings yet';
+            setBadge('glucose', 'normal');
         }
 
-        function renderFeed() {
-            const list = el('feedList');
-            list.innerHTML = '';
-            feedEntries.forEach(entry => {
-                const color = entry.color || 'cyan';
-                const line = document.createElement('div');
-                line.className = `feed-item ${color}`;
-                const msg = feedMode === 'patient' ? toPatientMessage(entry) : entry.message;
-                line.textContent = `${formatTime(entry.time)} · ${entry.icon || '↻'} · ${msg}`;
-                list.appendChild(line);
+        // Pain
+        if (latest.pain_level) {
+            el('painValue').textContent = latest.pain_level.value + '/10';
+            setBadge('pain', statusForMetric('pain_level', latest.pain_level.value));
+        } else {
+            el('painValue').textContent = '--';
+            el('painTrend').textContent = 'No readings yet';
+            setBadge('pain', 'normal');
+        }
+
+        // Temperature
+        if (latest.temperature) {
+            el('tempValue').textContent = latest.temperature.value + ' F';
+            setBadge('temp', statusForMetric('temperature', latest.temperature.value));
+        } else {
+            el('tempValue').textContent = '--';
+            el('tempTrend').textContent = 'No readings yet';
+            setBadge('temp', 'normal');
+        }
+
+        // Trends from history
+        const history = detail.vitals_history || [];
+        const bpH = history.filter(v => v.metric_type === 'bp_systolic');
+        if (bpH.length >= 2) el('bpTrend').textContent = 'trend: ' + trendArrow(bpH.map(v => v.value));
+        else if (bpH.length === 1) el('bpTrend').textContent = 'first reading';
+
+        const gH = history.filter(v => v.metric_type === 'glucose');
+        if (gH.length >= 2) el('glucoseTrend').textContent = 'trend: ' + trendArrow(gH.map(v => v.value));
+        else if (gH.length === 1) el('glucoseTrend').textContent = 'first reading';
+
+        const pH = history.filter(v => v.metric_type === 'pain_level');
+        if (pH.length >= 2) el('painTrend').textContent = 'trend: ' + trendArrow(pH.map(v => v.value));
+        else if (pH.length === 1) el('painTrend').textContent = 'first reading';
+
+        const tH = history.filter(v => v.metric_type === 'temperature');
+        if (tH.length >= 2) el('tempTrend').textContent = 'trend: ' + trendArrow(tH.map(v => v.value));
+        else if (tH.length === 1) el('tempTrend').textContent = 'first reading';
+
+        // BP chart from real data
+        renderBpChart(history.filter(v => v.metric_type === 'bp_systolic'));
+
+    } catch(e) {
+        showError(true);
+    }
+}
+
+// ── BP Chart ──
+function smoothPath(points) {
+    if (points.length < 2) return '';
+    const d = [];
+    for (let i = 0; i < points.length; i++) {
+        const p = points[i];
+        if (i === 0) { d.push('M ' + p.x + ' ' + p.y); }
+        else {
+            const prev = points[i-1];
+            const next = points[i+1] || p;
+            const dx = (next.x - prev.x) / 6;
+            d.push('C ' + (prev.x+dx) + ' ' + (prev.y+(p.y-prev.y)/3) + ' ' + (p.x-dx) + ' ' + (p.y-(p.y-prev.y)/3) + ' ' + p.x + ' ' + p.y);
+        }
+    }
+    return d.join(' ');
+}
+
+function renderBpChart(bpVitals) {
+    const wrap = el('bpChart');
+    if (!bpVitals || bpVitals.length < 2) {
+        wrap.innerHTML = '<div class="empty-state"><div class="icon">📊</div>Need at least 2 BP readings to show trend</div>';
+        return;
+    }
+    // Take last 7, reverse to chronological order
+    const data = bpVitals.slice(0, 7).reverse();
+    const w = 520, h = 200, pad = 30;
+    const values = data.map(v => v.value);
+    const mn = Math.min(...values, 100);
+    const mx = Math.max(...values, 160);
+    const stepX = (w - pad * 2) / (data.length - 1 || 1);
+    const scaleY = (val) => h - pad - ((val - mn) / (mx - mn || 1)) * (h - pad * 2);
+    const safeY = scaleY(140);
+    const pts = data.map((v, i) => ({
+        x: pad + i * stepX,
+        y: scaleY(v.value),
+        value: v.value,
+        day: v.timestamp ? v.timestamp.substring(5, 10) : ('D' + i)
+    }));
+    const linePath = smoothPath(pts);
+    const polyline = pts.map(p => p.x + ',' + p.y).join(' ');
+    const area = pad + ',' + (h - pad) + ' ' + polyline + ' ' + (w - pad) + ',' + (h - pad);
+    const dots = pts.map(p => '<circle cx="' + p.x + '" cy="' + p.y + '" r="4" fill="#f4f7fb" stroke="#c53030" stroke-width="2"><title>' + p.day + ' · ' + p.value + ' mmHg</title></circle>').join('');
+    const valText = pts.map(p => '<text x="' + p.x + '" y="' + (p.y - 8) + '" fill="#c53030" font-size="9" text-anchor="middle">' + p.value + '</text>').join('');
+    const labels = pts.map(p => '<text x="' + p.x + '" y="' + (h - 6) + '" fill="#4a6080" font-size="9" text-anchor="middle">' + p.day + '</text>').join('');
+    wrap.innerHTML = '<svg width="100%" height="100%" viewBox="0 0 ' + w + ' ' + h + '"><polygon points="' + area + '" fill="rgba(197,48,48,0.08)"/><line x1="' + pad + '" y1="' + safeY + '" x2="' + (w - pad) + '" y2="' + safeY + '" stroke="#2f855a" stroke-dasharray="4 4" opacity="0.6"/><path class="bp-line" d="' + linePath + '" fill="none" stroke="#c53030" stroke-width="2"/>' + dots + valText + labels + '</svg>';
+}
+
+// ── Alerts (real only, no fallback) ──
+async function refreshActions() {
+    if (!currentPatientId) return;
+    try {
+        const alerts = await fetchJSON('/alerts?patient_id=' + currentPatientId + '&limit=15');
+        const list = el('actionsList');
+        if (!alerts.length) {
+            list.innerHTML = '<div class="empty-state"><div class="icon">🔔</div>No alerts yet. Alerts are triggered by AI when something needs attention.</div>';
+            return;
+        }
+        list.innerHTML = '';
+        alerts.forEach(a => {
+            const sevClass = a.severity === 1 ? 'red' : a.severity === 2 ? 'yellow' : 'green';
+            const item = document.createElement('div');
+            item.className = 'action-item ' + sevClass;
+            item.innerHTML = '<div class="action-header"><span class="badge small ' + sevClass + '">sev' + a.severity + '</span><span class="mono">' + formatTime(a.timestamp) + '</span></div><div style="color:var(--text);font-size:12px">' + (a.message || '') + '</div><div style="font-size:9px;color:var(--muted);margin-top:4px">' + (a.action_taken || '') + '</div>';
+            list.appendChild(item);
+        });
+    } catch(e) {
+        showError(true);
+    }
+}
+
+// ── Live Feed (real audit log only) ──
+function renderFeed() {
+    const list = el('feedList');
+    if (!feedEntries.length) {
+        list.innerHTML = '<div class="empty-state" style="padding:16px"><div class="icon">📡</div>Live events will appear here</div>';
+        return;
+    }
+    list.innerHTML = '';
+    feedEntries.slice(-30).forEach(entry => {
+        const line = document.createElement('div');
+        line.className = 'feed-item ' + (entry.color || 'cyan');
+        const msg = feedMode === 'patient' ? (entry.patientMessage || entry.message) : entry.message;
+        line.textContent = entry.time + ' · ' + (entry.icon || '↻') + ' · ' + msg;
+        list.appendChild(line);
+    });
+    list.scrollTop = list.scrollHeight;
+}
+
+async function refreshFeed() {
+    try {
+        const audit = await fetchJSON('/audit?limit=30');
+        let newEntries = false;
+        audit.forEach(a => {
+            const key = (a.action_id || '') + '-' + (a.timestamp || '');
+            if (seenAudit.has(key)) return;
+            seenAudit.add(key);
+            newEntries = true;
+            let color = 'cyan', icon = '↻';
+            const t = a.type || '';
+            let patMsg = 'Your health data was processed.';
+            if (t.includes('photo') || t.includes('instant')) { color = 'yellow'; icon = '📸'; patMsg = 'Your photo was analyzed by AI.'; }
+            else if (t.includes('alert') || t.includes('severity_1')) { color = 'red'; icon = '🚨'; patMsg = 'Your doctor was notified.'; }
+            else if (t.includes('severity_2')) { color = 'yellow'; icon = '⚠'; patMsg = 'A follow-up action was taken.'; }
+            else if (t.includes('vital')) { color = 'green'; icon = '💓'; patMsg = 'Your vital was recorded.'; }
+            else if (t.includes('symptom')) { color = 'cyan'; icon = '📝'; patMsg = 'Your symptom was logged.'; }
+            else if (t.includes('doctor_report')) { color = 'cyan'; icon = '🩺'; patMsg = 'A doctor report was generated.'; }
+            feedEntries.push({
+                time: formatTime(a.timestamp),
+                icon: icon,
+                color: color,
+                message: t + (a.reason ? ' · ' + a.reason.substring(0, 60) : ''),
+                patientMessage: patMsg,
             });
-            list.scrollTop = list.scrollHeight;
-        }
+        });
+        if (newEntries) renderFeed();
+    } catch(e) {}
+}
 
-        function appendFeedEntries(entries) {
-            entries.forEach(a => {
-                feedEntries.push({
-                    time: formatTime(a.time || a.timestamp),
-                    icon: a.icon || '↻',
-                    color: a.color || 'cyan',
-                    message: a.message || '',
-                    patientMessage: a.patientMessage || null,
-                });
-            });
-            renderFeed();
+// ── Recent Analysis on dashboard ──
+async function refreshRecentAnalysis() {
+    if (!currentPatientId) return;
+    try {
+        const logs = await fetchJSON('/logs?patient_id=' + currentPatientId + '&limit=3');
+        const area = el('recentAnalysis');
+        const photoLogs = logs.filter(l => l.input_type === 'photo');
+        if (!photoLogs.length) {
+            area.innerHTML = '<div class="empty-state"><div class="icon">🔬</div>Upload a photo to see AI analysis results here</div>';
+            return;
         }
-
-        async function refreshFeed() {
-            try {
-                const audit = await fetchJSON('/audit?limit=25');
-                const fresh = [];
-                audit.forEach(a => {
-                    const key = `${a.action_id || ''}-${a.timestamp || ''}-${a.type || ''}`;
-                    if (seenAudit.has(key)) return;
-                    seenAudit.add(key);
-                    let color = 'cyan';
-                    if (String(a.type || '').includes('severity_1')) color = 'red';
-                    else if (String(a.type || '').includes('severity_2')) color = 'yellow';
-                    else if (String(a.type || '').includes('severity_3')) color = 'green';
-                    const patientMessage = color === 'red'
-                        ? '⚠ Your doctor was notified.'
-                        : color === 'yellow'
-                            ? '⚠ A follow-up action was taken.'
-                            : '✓ Everything looks normal.';
-                    fresh.push({
-                        time: formatTime(a.timestamp),
-                        icon: '↻',
-                        color,
-                        message: `${a.type || 'event'} · ${a.reason || ''}`,
-                        patientMessage,
-                    });
-                });
-                if (fresh.length) {
-                    appendFeedEntries(fresh);
-                }
-            } catch (e) {
-                showError(true);
-            }
-        }
-
-        function renderAnalysisResults(data) {
-            const state = el('uploadState');
-            const result = el('uploadResult');
-            const v = data.vision || {};
-            const t = data.triage || {};
-            const lvl = t.emergency_level || 'yellow_see_doctor';
-            const bMap = {green_self_care:{c:'green',i:'✅',t:'Self-Care OK'},yellow_see_doctor:{c:'yellow',i:'⚠️',t:'See a Doctor'},orange_urgent_care:{c:'red',i:'🏥',t:'Urgent Care Needed'},red_emergency:{c:'red',i:'🚨',t:'EMERGENCY'}};
-            const b = bMap[lvl] || bMap.yellow_see_doctor;
-            state.textContent = 'Analysis complete. Image deleted. Zero retention.';
-            let h = '<div class="card" style="margin-top:8px">';
-            h += '<div class="badge ' + b.c + '" style="font-size:11px;padding:6px 12px">' + b.i + ' ' + b.t + '</div>';
-            if (data.doctor_notified) h += '<div class="badge red" style="margin-top:6px;font-size:10px;padding:4px 8px">Doctor automatically notified</div>';
-            if (t.patient_message) h += '<div style="margin-top:12px;color:var(--text);font-size:13px;line-height:1.6">' + t.patient_message + '</div>';
-            h += '<div style="margin-top:14px"><strong style="color:var(--accent)">What We Found:</strong><div style="margin-top:6px;color:var(--text);font-size:12px;line-height:1.6">' + (v.observations || 'No observations') + '</div></div>';
-            if (v.primary_concern) h += '<div style="margin-top:8px;padding:8px 12px;background:#fff5f5;border:1px solid #fed7d7;border-radius:6px;font-size:12px;color:var(--red)"><strong>Primary Concern:</strong> ' + v.primary_concern + '</div>';
-            if (v.patient_summary) h += '<div style="margin-top:8px;padding:8px 12px;background:#ebf8ff;border:1px solid #bee3f8;border-radius:6px;font-size:12px;color:var(--accent)">' + v.patient_summary + '</div>';
-            var da = t.diagnosis_assessment || {};
-            if (da.most_likely) h += '<div style="margin-top:14px"><strong style="color:var(--accent)">Diagnosis:</strong><div style="margin-top:6px;font-size:14px;font-weight:700;color:var(--text)">' + da.most_likely + '</div>' + (da.confidence ? '<div style="font-size:10px;color:var(--muted)">Confidence: ' + Math.round(da.confidence * 100) + '%</div>' : '') + '</div>';
-            if (da.differential && da.differential.length) h += '<div style="margin-top:4px;font-size:11px;color:var(--muted)">Also consider: ' + da.differential.join(', ') + '</div>';
-            var allMeds = [].concat(v.medication_suggestions || [], t.medications || []);
-            if (allMeds.length) {
-                h += '<div style="margin-top:14px"><strong style="color:var(--accent)">Medications:</strong>';
-                var seen = {};
-                for (var mi = 0; mi < allMeds.length; mi++) {
-                    var m = allMeds[mi];
-                    var k = (m.name || '').toLowerCase();
-                    if (seen[k]) continue;
-                    seen[k] = true;
-                    var otc = m.otc === true || m.type === 'OTC';
-                    h += '<div style="margin-top:6px;padding:8px 12px;background:' + (otc ? '#f0fff4' : '#fff5f5') + ';border:1px solid ' + (otc ? '#c6f6d5' : '#fed7d7') + ';border-radius:6px">';
-                    h += '<div style="font-size:12px;font-weight:600;color:var(--text)">' + (m.name || '') + ' <span class="badge ' + (otc ? 'green' : 'red') + '" style="font-size:8px">' + (otc ? 'OTC' : 'Rx') + '</span></div>';
-                    if (m.purpose || m.dosage_note || m.dosage) h += '<div style="font-size:11px;color:var(--muted);margin-top:4px">' + (m.purpose ? 'For: ' + m.purpose + '. ' : '') + (m.dosage || m.dosage_note || '') + (m.duration ? ' | ' + m.duration : '') + '</div>';
-                    if (m.warnings) h += '<div style="font-size:10px;color:var(--red);margin-top:2px">Warning: ' + m.warnings + '</div>';
-                    h += '</div>';
-                }
-                h += '</div>';
-            }
-            if (t.treatment_plan && t.treatment_plan.length) {
-                h += '<div style="margin-top:14px"><strong style="color:var(--accent)">Treatment Plan:</strong>';
-                for (var si = 0; si < t.treatment_plan.length; si++) {
-                    var s = t.treatment_plan[si];
-                    h += '<div style="margin-top:6px;padding:8px 12px;border-left:3px solid var(--accent);background:#f7fafc;border-radius:0 6px 6px 0">';
-                    h += '<div style="font-size:12px;font-weight:600;color:var(--text)">Step ' + (s.step || '') + ': ' + (s.action || '') + '</div>';
-                    h += '<div style="font-size:11px;color:var(--muted)">' + (s.detail || '') + '</div>';
-                    if (s.timeframe) h += '<div style="font-size:10px;color:var(--yellow);margin-top:2px">' + s.timeframe + '</div>';
-                    h += '</div>';
-                }
-                h += '</div>';
-            }
-            var tests = [].concat(t.scans_and_tests || []);
-            var vScans = (v.scans_recommended || []).filter(function(x) { return x !== 'none'; });
-            for (var vi = 0; vi < vScans.length; vi++) {
-                var found = false;
-                for (var ti = 0; ti < tests.length; ti++) { if (tests[ti].test === vScans[vi]) found = true; }
-                if (!found) tests.push({test: vScans[vi], reason: 'Vision recommendation', urgency: 'soon'});
-            }
-            if (tests.length) {
-                h += '<div style="margin-top:14px"><strong style="color:var(--accent)">Scans & Tests:</strong>';
-                for (var xi = 0; xi < tests.length; xi++) {
-                    var tt = tests[xi];
-                    var uc = tt.urgency === 'urgent' ? 'red' : tt.urgency === 'soon' ? 'yellow' : 'green';
-                    h += '<div style="margin-top:4px;display:flex;justify-content:space-between;padding:6px 10px;background:#f7fafc;border-radius:6px;font-size:11px"><span style="font-weight:600;color:var(--text)">' + (tt.test || '') + '</span><span class="badge ' + uc + '">' + (tt.urgency || 'routine') + '</span></div>';
-                    if (tt.reason) h += '<div style="font-size:10px;color:var(--muted);padding:0 10px">' + tt.reason + '</div>';
-                }
-                h += '</div>';
-            }
-            if (t.do_not_do && t.do_not_do.length) {
-                h += '<div style="margin-top:14px"><strong style="color:var(--red)">Do NOT Do:</strong>';
-                for (var di = 0; di < t.do_not_do.length; di++) h += '<div style="margin-top:4px;padding:6px 10px;background:#fff5f5;border:1px solid #fed7d7;border-radius:6px;font-size:11px;color:var(--red)">' + t.do_not_do[di] + '</div>';
-                h += '</div>';
-            }
-            var hc = [].concat(t.home_care_plan || [], v.home_care || []);
-            if (hc.length) {
-                h += '<div style="margin-top:14px"><strong style="color:var(--green)">Home Care:</strong>';
-                for (var hi2 = 0; hi2 < hc.length; hi2++) h += '<div style="margin-top:4px;padding:6px 10px;background:#f0fff4;border:1px solid #c6f6d5;border-radius:6px;font-size:11px;color:var(--green)">' + hc[hi2] + '</div>';
-                h += '</div>';
-            }
-            var warn = [].concat(t.red_flags || [], v.warning_signs || []);
-            if (warn.length) {
-                h += '<div style="margin-top:14px"><strong style="color:var(--red)">Warning Signs:</strong>';
-                for (var wi = 0; wi < warn.length; wi++) h += '<div style="margin-top:4px;padding:6px 10px;background:#fff5f5;border:1px solid #feb2b2;border-radius:6px;font-size:11px;color:var(--red)">' + warn[wi] + '</div>';
-                h += '</div>';
-            }
-            var ref = t.specialist_referral || {};
-            if (ref.needed) h += '<div style="margin-top:10px;padding:8px 12px;background:#faf5ff;border:1px solid #e9d8fd;border-radius:6px;font-size:12px;color:#6b46c1"><strong>Specialist Referral:</strong> ' + (ref.specialty || '') + ' - ' + (ref.timeframe || 'soon') + '</div>';
-            if (t.next_check || v.follow_up) h += '<div style="margin-top:10px;font-size:12px;color:var(--muted)"><strong>Follow Up:</strong> ' + (t.next_check || '') + ' ' + (v.follow_up || '') + '</div>';
-            h += '<div style="margin-top:14px;padding:8px 12px;background:#f0fff4;border:1px solid #c6f6d5;border-radius:6px;font-size:10px;color:var(--green);text-align:center">Your photo was analyzed by Venice AI with zero data retention. The raw image was never stored. Only this text report exists.</div>';
+        let h = '';
+        photoLogs.forEach(l => {
+            const sev = l.decision === 'escalate' ? 'red' : l.decision === 'alert' ? 'red' : l.decision === 'monitor' ? 'yellow' : 'green';
+            h += '<div style="padding:8px;border:1px solid var(--border);border-radius:6px;margin-bottom:6px;border-left:3px solid var(--' + sev + ')">';
+            h += '<div style="display:flex;justify-content:space-between"><span class="badge small ' + sev + '">' + (l.decision || '') + '</span><span class="mono" style="font-size:9px;color:var(--muted)">' + formatTime(l.timestamp) + '</span></div>';
+            h += '<div style="font-size:11px;color:var(--text);margin-top:4px">' + (l.summary || '').substring(0, 200) + '</div>';
+            h += '<div style="font-size:10px;color:var(--muted);margin-top:2px">' + (l.reason || '').substring(0, 150) + '</div>';
             h += '</div>';
-            result.innerHTML = h;
-        }
+        });
+        area.innerHTML = h;
+    } catch(e) {}
+}
 
+// ── Status ──
+async function refreshStatus() {
+    try {
+        const st = await fetchJSON('/status');
+        el('agentStatus').textContent = st.running ? 'RUNNING' : 'IDLE';
+        el('uptime').textContent = st.uptime_seconds ? Math.round(st.uptime_seconds) + 's' : '--';
+        el('loopInfo').textContent = 'Loop: ' + (st.loop_count || 0);
+        el('nodeId').textContent = st.node_id || st.akash_node || '--';
+        showError(false);
+    } catch(e) { showError(true); }
+}
 
-        async function uploadPhoto() {
-            if (!currentPatientId) return;
-            const file = el('photoInput').files[0];
-            if (!file) return;
-            const noteText = el('chatPrompt') ? el('chatPrompt').value : '';
-            var detected = detectDeviceType(noteText);
-            if (detected) {
-                var reading = detected === 'bp_monitor' ? '120/80' : '142';
-                var unit = detected === 'bp_monitor' ? 'mmHg' : 'mg/dL';
-                renderDeviceResult(reading, unit, detected);
-                return;
-            }
-            el('photoAnalyzeBtn').disabled = true;
-            el('uploadState').textContent = '';
-            el('uploadResult').innerHTML = '<div class="card" style="margin-top:8px;text-align:center;padding:30px 20px">'
-                + '<div style="font-size:28px;animation:pulse 1.5s infinite">🔬</div>'
-                + '<div id="analyzeStep" style="margin-top:12px;font-size:13px;font-weight:600;color:var(--accent)">Step 1/3: Sending image to Venice Vision AI...</div>'
-                + '<div style="margin-top:8px;height:4px;background:#e2e8f0;border-radius:4px;overflow:hidden"><div id="analyzeBar" style="height:100%;width:10%;background:var(--accent);border-radius:4px;transition:width 1s ease"></div></div>'
-                + '<div style="margin-top:10px;font-size:10px;color:var(--muted)">This takes 15-45 seconds. Your image is analyzed in real-time by AI and deleted immediately after.</div>'
-                + '</div>';
-            el('uploadResult').scrollIntoView({behavior:'smooth', block:'center'});
-            var stepEl, barEl;
-            setTimeout(function(){ stepEl = document.getElementById('analyzeStep'); barEl = document.getElementById('analyzeBar'); if(barEl) barEl.style.width='33%'; }, 2000);
-            setTimeout(function(){ if(stepEl) stepEl.textContent='Step 2/3: Venice Vision analyzing image...'; if(barEl) barEl.style.width='55%'; }, 5000);
-            setTimeout(function(){ if(stepEl) stepEl.textContent='Step 2/3: Still analyzing (large AI model)...'; if(barEl) barEl.style.width='65%'; }, 15000);
-            setTimeout(function(){ if(stepEl) stepEl.textContent='Step 3/3: AkashML generating clinical triage...'; if(barEl) barEl.style.width='80%'; }, 25000);
-            setTimeout(function(){ if(barEl) barEl.style.width='90%'; }, 40000);
-            var fd = new FormData();
-            fd.append('file', file);
-            fd.append('patient_id', currentPatientId);
-            fd.append('note', noteText);
-            try {
-                var resp = await fetch('/analyze-photo', { method: 'POST', body: fd });
-                var data = await resp.json();
-                renderAnalysisResults(data);
-                el('uploadResult').scrollIntoView({behavior:'smooth', block:'start'});
-            } catch (e) {
-                el('uploadState').textContent = 'Analysis failed. Please try again.';
-                el('uploadResult').innerHTML = '<div class="badge red" style="margin-top:8px">Error: ' + (e.message || e) + '</div>';
-            }
-            el('photoAnalyzeBtn').disabled = false;
-        }
+// ── History Page ──
+let historyFilter = 'all';
 
+async function refreshHistory() {
+    if (!currentPatientId) return;
+    const area = el('historyList');
+    area.innerHTML = '<div class="empty-state" style="padding:16px">Loading...</div>';
 
-        async function postVital(metricType, value, unit) {
-            const fd = new FormData();
-            fd.append('patient_id', currentPatientId);
-            fd.append('metric_type', metricType);
-            fd.append('value', String(value));
-            fd.append('unit', unit || '');
-            await fetch('/vital', { method: 'POST', body: fd });
-        }
+    try {
+        const items = [];
 
-        function detectDeviceType(noteText) {
-            const text = (noteText || '').toLowerCase();
-            const isBp = ['bp', 'blood pressure', 'mmhg', 'systolic', 'diastolic', 'pressure'].some(k => text.includes(k));
-            const isGlucose = ['glucose', 'sugar', 'mg/dl', 'glucometer', 'meter'].some(k => text.includes(k));
-            if (isBp) return 'bp_monitor';
-            if (isGlucose) return 'glucometer';
-            return null;
-        }
-
-        function renderDeviceResult(reading, unit, deviceType) {
-            const deviceResult = el('deviceResult');
-            deviceResult.innerHTML = `
-        <div>We read: <strong>${reading} ${unit}</strong> from your device.</div>
-        <div style="margin-top:6px">Is this correct?</div>
-        <div class="device-actions">
-          <button class="btn small" id="deviceYes">Yes, save it</button>
-          <button class="btn small" id="deviceNo">No, correct it</button>
-        </div>
-        <div id="deviceEdit" style="margin-top:6px"></div>
-      `;
-            el('deviceYes').addEventListener('click', async () => {
-                try {
-                    if (deviceType === 'bp_monitor') {
-                        const parts = String(reading).split('/');
-                        if (parts.length !== 2) throw new Error('bp_format');
-                        const sys = parseFloat(parts[0].trim());
-                        const dia = parseFloat(parts[1].trim());
-                        if (Number.isNaN(sys) || Number.isNaN(dia)) throw new Error('bp_format');
-                        await postVital('bp_systolic', sys, unit);
-                        await postVital('bp_diastolic', dia, unit);
-                    } else {
-                        const val = parseFloat(reading);
-                        if (Number.isNaN(val)) throw new Error('bad_number');
-                        await postVital('glucose', val, unit);
-                    }
-                    deviceResult.innerHTML = `<div>Saved to your record ✅</div>`;
-                } catch (e) {
-                    deviceResult.innerHTML = `<div>Please enter a valid reading before saving.</div>`;
-                }
-            });
-            el('deviceNo').addEventListener('click', () => {
-                const edit = el('deviceEdit');
-                edit.innerHTML = `
-          <div style="margin-top:6px">Correct reading:</div>
-          <div class="device-actions">
-            <input id="deviceInputValue" class="input-inline" value="${reading}" />
-            <button class="btn small" id="deviceSaveCorrected">Save</button>
-          </div>
-          ${deviceType === 'bp_monitor' ? '<div class="filename">Format: systolic/diastolic (e.g. 120/80)</div>' : ''}
-        `;
-                el('deviceSaveCorrected').addEventListener('click', async () => {
-                    const corrected = el('deviceInputValue').value.trim();
-                    try {
-                        if (deviceType === 'bp_monitor') {
-                            const parts = corrected.split('/');
-                            if (parts.length !== 2) throw new Error('bp_format');
-                            const sys = parseFloat(parts[0].trim());
-                            const dia = parseFloat(parts[1].trim());
-                            if (Number.isNaN(sys) || Number.isNaN(dia)) throw new Error('bp_format');
-                            await postVital('bp_systolic', sys, unit);
-                            await postVital('bp_diastolic', dia, unit);
-                        } else {
-                            const val = parseFloat(corrected);
-                            if (Number.isNaN(val)) throw new Error('bad_number');
-                            await postVital('glucose', val, unit);
-                        }
-                        deviceResult.innerHTML = `<div>Saved to your record ✅</div>`;
-                    } catch (e) {
-                        deviceResult.innerHTML = `<div>Please enter a valid reading before saving.</div>`;
-                    }
+        // Get vitals
+        if (historyFilter === 'all' || historyFilter === 'vitals') {
+            const vitals = await fetchJSON('/patient/' + currentPatientId + '/vitals?days=30');
+            vitals.forEach(v => {
+                items.push({
+                    time: v.timestamp,
+                    type: 'vital',
+                    typeLabel: v.metric_type.replace(/_/g, ' '),
+                    content: v.value + ' ' + (v.unit || ''),
+                    source: v.source || 'manual',
+                    color: 'green',
                 });
             });
         }
 
-        const photoDrop = el('photoDrop');
-        photoDrop.addEventListener('click', () => el('photoInput').click());
-        photoDrop.addEventListener('dragover', (e) => { e.preventDefault(); photoDrop.classList.add('hover'); });
-        photoDrop.addEventListener('dragleave', () => photoDrop.classList.remove('hover'));
-        photoDrop.addEventListener('drop', (e) => {
-            e.preventDefault();
-            photoDrop.classList.remove('hover');
-            const file = e.dataTransfer.files[0];
-            if (file) {
-                el('photoInput').files = e.dataTransfer.files;
-                el('photoName').textContent = file.name;
-                el('photoAnalyzeBtn').disabled = false;
-            }
-        });
-        el('photoInput').addEventListener('change', () => {
-            const file = el('photoInput').files[0];
-            el('photoName').textContent = file ? file.name : 'No file selected';
-            el('photoAnalyzeBtn').disabled = !file;
-        });
-        el('photoAnalyzeBtn').addEventListener('click', uploadPhoto);
-
-        function showPage(page) {
-            const dashboard = el('page-dashboard');
-            const upload = el('page-upload');
-            if (page === 'upload') {
-                dashboard.classList.remove('active');
-                upload.classList.add('active');
-                const panel = document.getElementById('attachPanel');
-                if (panel) panel.classList.remove('active');
-            } else {
-                upload.classList.remove('active');
-                dashboard.classList.add('active');
-            }
-            document.querySelectorAll('#navTabs a').forEach(a => {
-                a.classList.toggle('active', a.dataset.page === page);
+        // Get analysis logs
+        if (historyFilter === 'all' || historyFilter === 'analysis') {
+            const logs = await fetchJSON('/logs?patient_id=' + currentPatientId + '&limit=50');
+            logs.forEach(l => {
+                const sev = l.decision === 'escalate' ? 'red' : l.decision === 'alert' ? 'red' : l.decision === 'monitor' ? 'yellow' : 'green';
+                items.push({
+                    time: l.timestamp,
+                    type: 'analysis',
+                    typeLabel: l.input_type + ' analysis',
+                    content: (l.summary || '').substring(0, 300),
+                    reason: l.reason || '',
+                    decision: l.decision,
+                    model: l.model_used,
+                    anomaly: l.anomaly_score,
+                    color: sev,
+                });
             });
         }
 
-        document.querySelectorAll('#navTabs a').forEach(a => {
-            a.addEventListener('click', (e) => {
-                e.preventDefault();
-                const page = a.dataset.page || 'dashboard';
-                showPage(page === 'upload' ? 'upload' : 'dashboard');
-            });
-        });
-        const goUpload = document.getElementById('goUploadBtn');
-        if (goUpload) {
-            goUpload.addEventListener('click', () => showPage('upload'));
-        }
-
-        const attachToggle = document.getElementById('attachToggle');
-        if (attachToggle) {
-            attachToggle.addEventListener('click', () => {
-                const panel = document.getElementById('attachPanel');
-                panel.classList.toggle('active');
+        // Get alerts
+        if (historyFilter === 'all' || historyFilter === 'alerts') {
+            const alerts = await fetchJSON('/alerts?patient_id=' + currentPatientId + '&limit=50');
+            alerts.forEach(a => {
+                items.push({
+                    time: a.timestamp,
+                    type: 'alert',
+                    typeLabel: 'sev' + a.severity + ' alert',
+                    content: a.message,
+                    action: a.action_taken,
+                    color: a.severity === 1 ? 'red' : a.severity === 2 ? 'yellow' : 'green',
+                });
             });
         }
 
-        el('uploadResult').innerHTML = '';
+        // Sort by time descending
+        items.sort((a, b) => (b.time || '').localeCompare(a.time || ''));
 
-        function setFeedMode(mode) {
-            feedMode = mode;
-            el('feedPatientBtn').classList.toggle('toggle-active', mode === 'patient');
-            el('feedDevBtn').classList.toggle('toggle-active', mode === 'developer');
-            renderFeed();
+        if (!items.length) {
+            area.innerHTML = '<div class="empty-state"><div class="icon">📋</div>No ' + historyFilter + ' history yet. Start by adding vitals or uploading photos.</div>';
+            return;
         }
-        el('feedPatientBtn').addEventListener('click', () => setFeedMode('patient'));
-        el('feedDevBtn').addEventListener('click', () => setFeedMode('developer'));
-        setFeedMode('patient');
 
-        appendFeedEntries(getDemoFeed());
-        renderActions(demoActions);
-        setFallbackVitals();
-        renderBpChart(getDemoBpPoints());
-
-        loadPatient().then(() => {
-            refreshStatus();
-            refreshActions();
-            refreshFeed();
-            setInterval(refreshStatus, 5000);
-            setInterval(refreshActions, 30000);
-            setInterval(refreshFeed, 2000);
-            setInterval(() => {
-                const now = new Date();
-                const time = now.toTimeString().substring(0, 8);
-                appendFeedEntries([{
-                    time,
-                    icon: '↻',
-                    color: 'cyan',
-                    message: 'Agent loop ran — no anomalies detected',
-                    patientMessage: '✓ Your health data was checked.',
-                }]);
-            }, 60000);
+        area.innerHTML = '';
+        items.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'history-item';
+            div.style.borderLeft = '3px solid var(--' + item.color + ')';
+            let h = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">';
+            h += '<span class="badge small ' + item.color + '">' + item.typeLabel + '</span>';
+            h += '<span class="time">' + formatTime(item.time) + ' · ' + (item.time || '').substring(0, 10) + '</span>';
+            h += '</div>';
+            h += '<div style="font-size:12px;color:var(--text)">' + item.content + '</div>';
+            if (item.reason) h += '<div style="font-size:10px;color:var(--muted);margin-top:4px">' + item.reason + '</div>';
+            if (item.decision) h += '<div style="font-size:10px;margin-top:4px"><span class="badge small ' + item.color + '">' + item.decision + '</span>' + (item.model ? ' · ' + item.model : '') + (item.anomaly !== undefined ? ' · anomaly: ' + (item.anomaly || 0).toFixed(2) : '') + '</div>';
+            if (item.action) h += '<div style="font-size:10px;color:var(--muted);margin-top:2px">Action: ' + item.action + '</div>';
+            if (item.source) h += '<div style="font-size:9px;color:var(--muted);margin-top:2px">source: ' + item.source + '</div>';
+            div.innerHTML = h;
+            area.appendChild(div);
         });
-    </script>
+    } catch(e) {
+        area.innerHTML = '<div class="empty-state"><div class="icon">❌</div>Failed to load history. ' + e.message + '</div>';
+    }
+}
+
+// History filter buttons
+['histAllBtn', 'histVitalsBtn', 'histAnalysisBtn', 'histAlertsBtn'].forEach(id => {
+    el(id).addEventListener('click', function() {
+        historyFilter = this.dataset.filter;
+        document.querySelectorAll('[data-filter]').forEach(b => b.classList.remove('toggle-active'));
+        this.classList.add('toggle-active');
+        refreshHistory();
+    });
+});
+
+// ── Doctor Page ──
+el('genReportBtn').addEventListener('click', async function() {
+    if (!currentPatientId) { alert('Select a patient first'); return; }
+    const area = el('doctorReportArea');
+    this.disabled = true;
+    this.textContent = 'Generating...';
+    area.innerHTML = '<div class="empty-state" style="padding:20px"><div style="font-size:28px;animation:pulse 1.5s infinite">🩺</div><div style="margin-top:8px">Generating AI doctor report... This takes 15-30 seconds.</div></div>';
+    try {
+        const data = await fetchJSON('/doctor-report/' + currentPatientId);
+        const r = data.report || {};
+        let h = '';
+        if (r.clinical_summary) {
+            h += '<div class="doctor-section"><h3>Clinical Summary</h3><p>' + r.clinical_summary + '</p></div>';
+        }
+        if (r.risk_assessment) {
+            h += '<div class="doctor-section"><h3>Risk Assessment</h3><p>' + (typeof r.risk_assessment === 'string' ? r.risk_assessment : JSON.stringify(r.risk_assessment, null, 2)) + '</p></div>';
+        }
+        if (r.treatment_plan) {
+            h += '<div class="doctor-section"><h3>Treatment Plan</h3><p>' + (typeof r.treatment_plan === 'string' ? r.treatment_plan : JSON.stringify(r.treatment_plan, null, 2)) + '</p></div>';
+        }
+        if (r.medication_review) {
+            h += '<div class="doctor-section"><h3>Medication Review</h3><p>' + (typeof r.medication_review === 'string' ? r.medication_review : JSON.stringify(r.medication_review, null, 2)) + '</p></div>';
+        }
+        if (r.follow_up) {
+            h += '<div class="doctor-section"><h3>Follow-Up Recommendations</h3><p>' + (typeof r.follow_up === 'string' ? r.follow_up : JSON.stringify(r.follow_up, null, 2)) + '</p></div>';
+        }
+        if (!h) h = '<div class="doctor-section"><h3>Raw Report</h3><pre style="font-size:11px;white-space:pre-wrap;color:var(--text)">' + JSON.stringify(r, null, 2) + '</pre></div>';
+        area.innerHTML = h;
+    } catch(e) {
+        area.innerHTML = '<div class="empty-state" style="color:var(--red)">Failed to generate report: ' + e.message + '</div>';
+    }
+    this.disabled = false;
+    this.textContent = 'Generate Doctor Report';
+});
+
+el('genBriefingBtn').addEventListener('click', async function() {
+    if (!currentPatientId) { alert('Select a patient first'); return; }
+    const area = el('audioBriefingArea');
+    this.disabled = true;
+    this.textContent = 'Generating Audio...';
+    area.innerHTML = '<div class="empty-state" style="padding:16px"><div style="font-size:24px;animation:pulse 1.5s infinite">🔊</div><div style="margin-top:8px">Generating audio briefing via AkashML + Venice TTS...</div></div>';
+    try {
+        const data = await fetchJSON('/patient-briefing/' + currentPatientId);
+        let h = '';
+        if (data.briefing && data.briefing.spoken_text) {
+            h += '<div class="doctor-section"><h3>Patient Briefing</h3><p>' + data.briefing.spoken_text + '</p></div>';
+        }
+        if (data.audio_b64) {
+            h += '<div class="doctor-section"><h3>Audio Playback</h3><audio controls src="data:audio/mp3;base64,' + data.audio_b64 + '" style="width:100%"></audio></div>';
+        }
+        if (!h) h = '<div class="empty-state">No briefing generated. Add more patient data first.</div>';
+        area.innerHTML = h;
+    } catch(e) {
+        area.innerHTML = '<div class="empty-state" style="color:var(--red)">Failed: ' + e.message + '</div>';
+    }
+    this.disabled = false;
+    this.textContent = 'Audio Patient Briefing';
+});
+
+// ── Quick Add Vital ──
+el('vitalType').addEventListener('change', function() {
+    el('vitalVal2').style.display = this.value === 'bp' ? 'inline-block' : 'none';
+    el('vitalVal1').placeholder = this.value === 'bp' ? 'Systolic' : 'Value';
+});
+
+el('addVitalBtn').addEventListener('click', async function() {
+    if (!currentPatientId) { alert('Select a patient first'); return; }
+    const type = el('vitalType').value;
+    const v1 = parseFloat(el('vitalVal1').value);
+    if (isNaN(v1)) { el('vitalSaveMsg').textContent = 'Enter a value'; return; }
+
+    this.disabled = true;
+    try {
+        if (type === 'bp') {
+            const v2 = parseFloat(el('vitalVal2').value);
+            if (isNaN(v2)) { el('vitalSaveMsg').textContent = 'Enter diastolic'; this.disabled = false; return; }
+            await postVital('bp_systolic', v1, 'mmHg');
+            await postVital('bp_diastolic', v2, 'mmHg');
+        } else {
+            const units = { glucose: 'mg/dL', pain_level: '/10', temperature: 'F', heart_rate: 'bpm', oxygen_saturation: '%' };
+            await postVital(type, v1, units[type] || '');
+        }
+        el('vitalSaveMsg').textContent = 'Saved!';
+        el('vitalVal1').value = '';
+        el('vitalVal2').value = '';
+        setTimeout(() => { el('vitalSaveMsg').textContent = ''; }, 2000);
+        refreshVitals();
+    } catch(e) {
+        el('vitalSaveMsg').textContent = 'Error: ' + e.message;
+    }
+    this.disabled = false;
+});
+
+async function postVital(metricType, value, unit) {
+    const fd = new FormData();
+    fd.append('patient_id', currentPatientId);
+    fd.append('metric_type', metricType);
+    fd.append('value', String(value));
+    fd.append('unit', unit || '');
+    const r = await fetch('/vital', { method: 'POST', body: fd });
+    if (!r.ok) throw new Error('Failed to save');
+}
+
+// ── Photo Upload (same as before with loading spinner) ──
+function renderAnalysisResults(data) {
+    const state = el('uploadState');
+    const result = el('uploadResult');
+    const v = data.vision || {};
+    const t = data.triage || {};
+    const lvl = t.emergency_level || 'yellow_see_doctor';
+    const bMap = {green_self_care:{c:'green',i:'✅',t:'Self-Care OK'},yellow_see_doctor:{c:'yellow',i:'⚠️',t:'See a Doctor'},orange_urgent_care:{c:'red',i:'🏥',t:'Urgent Care Needed'},red_emergency:{c:'red',i:'🚨',t:'EMERGENCY'}};
+    const b = bMap[lvl] || bMap.yellow_see_doctor;
+    state.textContent = 'Analysis complete. Image deleted. Zero retention.';
+    let h = '<div class="card" style="margin-top:8px">';
+    h += '<div class="badge ' + b.c + '" style="font-size:11px;padding:6px 12px">' + b.i + ' ' + b.t + '</div>';
+    if (data.doctor_notified) h += '<div class="badge red" style="margin-top:6px;font-size:10px;padding:4px 8px">Doctor automatically notified</div>';
+    if (t.patient_message) h += '<div style="margin-top:12px;color:var(--text);font-size:13px;line-height:1.6">' + t.patient_message + '</div>';
+    h += '<div style="margin-top:14px"><strong style="color:var(--accent)">What We Found:</strong><div style="margin-top:6px;color:var(--text);font-size:12px;line-height:1.6">' + (v.observations || 'No observations') + '</div></div>';
+    if (v.primary_concern) h += '<div style="margin-top:8px;padding:8px 12px;background:#fff5f5;border:1px solid #fed7d7;border-radius:6px;font-size:12px;color:var(--red)"><strong>Primary Concern:</strong> ' + v.primary_concern + '</div>';
+    if (v.patient_summary) h += '<div style="margin-top:8px;padding:8px 12px;background:#ebf8ff;border:1px solid #bee3f8;border-radius:6px;font-size:12px;color:var(--accent)">' + v.patient_summary + '</div>';
+    var da = t.diagnosis_assessment || {};
+    if (da.most_likely) h += '<div style="margin-top:14px"><strong style="color:var(--accent)">Diagnosis:</strong><div style="margin-top:6px;font-size:14px;font-weight:700;color:var(--text)">' + da.most_likely + '</div>' + (da.confidence ? '<div style="font-size:10px;color:var(--muted)">Confidence: ' + Math.round(da.confidence * 100) + '%</div>' : '') + '</div>';
+    if (da.differential && da.differential.length) h += '<div style="margin-top:4px;font-size:11px;color:var(--muted)">Also consider: ' + da.differential.join(', ') + '</div>';
+    var allMeds = [].concat(v.medication_suggestions || [], t.medications || []);
+    if (allMeds.length) {
+        h += '<div style="margin-top:14px"><strong style="color:var(--accent)">Medications:</strong>';
+        var seen = {};
+        for (var mi = 0; mi < allMeds.length; mi++) {
+            var m = allMeds[mi];
+            var k = (m.name || '').toLowerCase();
+            if (seen[k]) continue; seen[k] = true;
+            var otc = m.otc === true || m.type === 'OTC';
+            h += '<div style="margin-top:6px;padding:8px 12px;background:' + (otc ? '#f0fff4' : '#fff5f5') + ';border:1px solid ' + (otc ? '#c6f6d5' : '#fed7d7') + ';border-radius:6px">';
+            h += '<div style="font-size:12px;font-weight:600;color:var(--text)">' + (m.name || '') + ' <span class="badge ' + (otc ? 'green' : 'red') + '" style="font-size:8px">' + (otc ? 'OTC' : 'Rx') + '</span></div>';
+            if (m.purpose || m.dosage || m.dosage_note) h += '<div style="font-size:11px;color:var(--muted);margin-top:4px">' + (m.purpose ? 'For: ' + m.purpose + '. ' : '') + (m.dosage || m.dosage_note || '') + (m.duration ? ' | ' + m.duration : '') + '</div>';
+            if (m.warnings) h += '<div style="font-size:10px;color:var(--red);margin-top:2px">Warning: ' + m.warnings + '</div>';
+            h += '</div>';
+        }
+        h += '</div>';
+    }
+    if (t.treatment_plan && t.treatment_plan.length) {
+        h += '<div style="margin-top:14px"><strong style="color:var(--accent)">Treatment Plan:</strong>';
+        t.treatment_plan.forEach(function(s) {
+            h += '<div style="margin-top:6px;padding:8px 12px;border-left:3px solid var(--accent);background:#f7fafc;border-radius:0 6px 6px 0">';
+            h += '<div style="font-size:12px;font-weight:600;color:var(--text)">Step ' + (s.step || '') + ': ' + (s.action || '') + '</div>';
+            h += '<div style="font-size:11px;color:var(--muted)">' + (s.detail || '') + '</div>';
+            if (s.timeframe) h += '<div style="font-size:10px;color:var(--yellow);margin-top:2px">' + s.timeframe + '</div>';
+            h += '</div>';
+        });
+        h += '</div>';
+    }
+    var tests = [].concat(t.scans_and_tests || []);
+    if (tests.length) {
+        h += '<div style="margin-top:14px"><strong style="color:var(--accent)">Scans & Tests:</strong>';
+        tests.forEach(function(tt) {
+            var uc = tt.urgency === 'urgent' ? 'red' : tt.urgency === 'soon' ? 'yellow' : 'green';
+            h += '<div style="margin-top:4px;display:flex;justify-content:space-between;padding:6px 10px;background:#f7fafc;border-radius:6px;font-size:11px"><span style="font-weight:600;color:var(--text)">' + (tt.test || '') + '</span><span class="badge ' + uc + '">' + (tt.urgency || 'routine') + '</span></div>';
+            if (tt.reason) h += '<div style="font-size:10px;color:var(--muted);padding:0 10px">' + tt.reason + '</div>';
+        });
+        h += '</div>';
+    }
+    if (t.do_not_do && t.do_not_do.length) {
+        h += '<div style="margin-top:14px"><strong style="color:var(--red)">Do NOT Do:</strong>';
+        t.do_not_do.forEach(function(d) { h += '<div style="margin-top:4px;padding:6px 10px;background:#fff5f5;border:1px solid #fed7d7;border-radius:6px;font-size:11px;color:var(--red)">' + d + '</div>'; });
+        h += '</div>';
+    }
+    var hc = [].concat(t.home_care_plan || [], v.home_care || []);
+    if (hc.length) {
+        h += '<div style="margin-top:14px"><strong style="color:var(--green)">Home Care:</strong>';
+        hc.forEach(function(c) { h += '<div style="margin-top:4px;padding:6px 10px;background:#f0fff4;border:1px solid #c6f6d5;border-radius:6px;font-size:11px;color:var(--green)">' + c + '</div>'; });
+        h += '</div>';
+    }
+    var warn = [].concat(t.red_flags || [], v.warning_signs || []);
+    if (warn.length) {
+        h += '<div style="margin-top:14px"><strong style="color:var(--red)">Warning Signs:</strong>';
+        warn.forEach(function(w) { h += '<div style="margin-top:4px;padding:6px 10px;background:#fff5f5;border:1px solid #feb2b2;border-radius:6px;font-size:11px;color:var(--red)">' + w + '</div>'; });
+        h += '</div>';
+    }
+    var ref = t.specialist_referral || {};
+    if (ref.needed) h += '<div style="margin-top:10px;padding:8px 12px;background:#faf5ff;border:1px solid #e9d8fd;border-radius:6px;font-size:12px;color:#6b46c1"><strong>Specialist Referral:</strong> ' + (ref.specialty || '') + ' - ' + (ref.timeframe || 'soon') + '</div>';
+    if (t.next_check || v.follow_up) h += '<div style="margin-top:10px;font-size:12px;color:var(--muted)"><strong>Follow Up:</strong> ' + (t.next_check || '') + ' ' + (v.follow_up || '') + '</div>';
+    h += '<div style="margin-top:14px;padding:8px 12px;background:#f0fff4;border:1px solid #c6f6d5;border-radius:6px;font-size:10px;color:var(--green);text-align:center">Your photo was analyzed by Venice AI with zero data retention. The raw image was never stored.</div>';
+    h += '</div>';
+    result.innerHTML = h;
+    // Refresh dashboard data after analysis
+    refreshVitals();
+    refreshActions();
+    refreshRecentAnalysis();
+}
+
+async function uploadPhoto() {
+    if (!currentPatientId) { alert('Select a patient first'); return; }
+    const file = el('photoInput').files[0];
+    if (!file) return;
+    const noteText = el('chatPrompt') ? el('chatPrompt').value : '';
+    el('photoAnalyzeBtn').disabled = true;
+    el('uploadState').textContent = '';
+    el('uploadResult').innerHTML = '<div class="card" style="margin-top:8px;text-align:center;padding:30px 20px">'
+        + '<div style="font-size:28px;animation:pulse 1.5s infinite">🔬</div>'
+        + '<div id="analyzeStep" style="margin-top:12px;font-size:13px;font-weight:600;color:var(--accent)">Step 1/3: Sending image to Venice Vision AI...</div>'
+        + '<div style="margin-top:8px;height:4px;background:#e2e8f0;border-radius:4px;overflow:hidden"><div id="analyzeBar" style="height:100%;width:10%;background:var(--accent);border-radius:4px;transition:width 1s ease"></div></div>'
+        + '<div style="margin-top:10px;font-size:10px;color:var(--muted)">This takes 15-45 seconds. Your image is analyzed in real-time by AI and deleted immediately after.</div>'
+        + '</div>';
+    el('uploadResult').scrollIntoView({behavior:'smooth', block:'center'});
+    var stepEl, barEl;
+    setTimeout(function(){ stepEl = document.getElementById('analyzeStep'); barEl = document.getElementById('analyzeBar'); if(barEl) barEl.style.width='33%'; }, 2000);
+    setTimeout(function(){ if(stepEl) stepEl.textContent='Step 2/3: Venice Vision analyzing image...'; if(barEl) barEl.style.width='55%'; }, 5000);
+    setTimeout(function(){ if(stepEl) stepEl.textContent='Step 2/3: Still analyzing (large AI model)...'; if(barEl) barEl.style.width='65%'; }, 15000);
+    setTimeout(function(){ if(stepEl) stepEl.textContent='Step 3/3: AkashML generating clinical triage...'; if(barEl) barEl.style.width='80%'; }, 25000);
+    setTimeout(function(){ if(barEl) barEl.style.width='90%'; }, 40000);
+    var fd = new FormData();
+    fd.append('file', file);
+    fd.append('patient_id', currentPatientId);
+    fd.append('note', noteText);
+    try {
+        var resp = await fetch('/analyze-photo', { method: 'POST', body: fd });
+        var data = await resp.json();
+        renderAnalysisResults(data);
+        el('uploadResult').scrollIntoView({behavior:'smooth', block:'start'});
+    } catch(e) {
+        el('uploadState').textContent = 'Analysis failed. Please try again.';
+        el('uploadResult').innerHTML = '<div class="badge red" style="margin-top:8px">Error: ' + (e.message || e) + '</div>';
+    }
+    el('photoAnalyzeBtn').disabled = false;
+}
+
+// ── Photo Upload UI ──
+var photoDrop = el('photoDrop');
+photoDrop.addEventListener('click', function() { el('photoInput').click(); });
+photoDrop.addEventListener('dragover', function(e) { e.preventDefault(); photoDrop.classList.add('hover'); });
+photoDrop.addEventListener('dragleave', function() { photoDrop.classList.remove('hover'); });
+photoDrop.addEventListener('drop', function(e) {
+    e.preventDefault(); photoDrop.classList.remove('hover');
+    var f = e.dataTransfer.files[0];
+    if (f) { el('photoInput').files = e.dataTransfer.files; el('photoName').textContent = f.name; el('photoAnalyzeBtn').disabled = false; }
+});
+el('photoInput').addEventListener('change', function() {
+    var f = el('photoInput').files[0];
+    el('photoName').textContent = f ? f.name : 'No file selected';
+    el('photoAnalyzeBtn').disabled = !f;
+});
+el('photoAnalyzeBtn').addEventListener('click', uploadPhoto);
+
+// ── Symptom Submit ──
+el('sendPrompt').addEventListener('click', async function() {
+    if (!currentPatientId) { alert('Select a patient first'); return; }
+    var text = el('chatPrompt').value.trim();
+    if (!text) return;
+    var fd = new FormData();
+    fd.append('patient_id', currentPatientId);
+    fd.append('text', text);
+    try {
+        await fetch('/symptom', { method: 'POST', body: fd });
+        el('chatPrompt').value = '';
+        feedEntries.push({ time: new Date().toTimeString().substring(0, 8), icon: '📝', color: 'cyan', message: 'Symptom submitted: ' + text.substring(0, 50), patientMessage: 'Your symptom was recorded and is being analyzed.' });
+        renderFeed();
+    } catch(e) { alert('Failed to submit: ' + e.message); }
+});
+
+// ── Page Navigation ──
+function showPage(page) {
+    ['page-dashboard', 'page-upload', 'page-history', 'page-doctor'].forEach(id => {
+        el(id).classList.remove('active');
+    });
+    var target = el('page-' + page);
+    if (target) target.classList.add('active');
+    document.querySelectorAll('#navTabs a').forEach(a => {
+        a.classList.toggle('active', a.dataset.page === page);
+    });
+    if (page === 'history') refreshHistory();
+    if (page === 'upload') {
+        var panel = el('attachPanel');
+        if (panel) panel.classList.add('active');
+    }
+}
+
+document.querySelectorAll('#navTabs a').forEach(a => {
+    a.addEventListener('click', function(e) {
+        e.preventDefault();
+        showPage(this.dataset.page || 'dashboard');
+    });
+});
+
+el('goUploadBtn').addEventListener('click', function() { showPage('upload'); });
+
+el('attachToggle').addEventListener('click', function() {
+    el('attachPanel').classList.toggle('active');
+});
+
+// ── Feed Mode ──
+function setFeedMode(mode) {
+    feedMode = mode;
+    el('feedPatientBtn').classList.toggle('toggle-active', mode === 'patient');
+    el('feedDevBtn').classList.toggle('toggle-active', mode === 'developer');
+    renderFeed();
+}
+el('feedPatientBtn').addEventListener('click', function() { setFeedMode('patient'); });
+el('feedDevBtn').addEventListener('click', function() { setFeedMode('developer'); });
+
+// ── Refresh All ──
+function refreshAll() {
+    refreshVitals();
+    refreshActions();
+    refreshFeed();
+    refreshStatus();
+    refreshRecentAnalysis();
+}
+
+// ── Init ──
+loadPatients().then(function() {
+    refreshAll();
+    setInterval(refreshStatus, 5000);
+    setInterval(refreshActions, 15000);
+    setInterval(refreshFeed, 3000);
+    setInterval(refreshVitals, 10000);
+});
+</script>
 </body>
-
 </html>
