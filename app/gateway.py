@@ -144,7 +144,7 @@ async def health_chat(patient_id: str = Form(...), message: str = Form(...)):
     msgs = _build_chat_msgs(patient, patient_id, message)
     try:
         resp = _agent.venice.chat.completions.create(
-            model="grok-41-fast", messages=msgs,
+            model="llama-3.3-70b", messages=msgs,
             max_tokens=300, temperature=0.3,
         )
         ai_response = resp.choices[0].message.content.strip()
@@ -175,7 +175,7 @@ async def health_chat_stream(patient_id: str = Form(...), message: str = Form(..
         full = ""
         try:
             stream = _agent.venice.chat.completions.create(
-                model="grok-41-fast", messages=msgs,
+                model="llama-3.3-70b", messages=msgs,
                 max_tokens=300, temperature=0.3, stream=True,
             )
             for chunk in stream:
@@ -534,7 +534,7 @@ async def analyze_photo(
 
     # Step 3: AkashML Clinical Triage — full treatment plan
     triage = inference.akashml_clinical_triage(
-        _agent.venice, "grok-41-fast",
+        _agent.venice, "llama-3.3-70b",
         vision_result, patient_context, note,
     )
     _agent.stats["venice_calls"] += 1
@@ -657,7 +657,7 @@ def doctor_report(patient_id: str):
     context = _agent.memory.load_context(patient_id, days=14)
     context_text = _agent.memory.format_for_ai(context)
     report = inference.akashml_doctor_report(
-        _agent.venice, "grok-41-fast", context_text
+        _agent.venice, "llama-3.3-70b", context_text
     )
     _agent.stats["venice_calls"] += 1
     _db.audit({"type": "doctor_report_generated", "patient_id": patient_id[:8] + "..."})
@@ -675,7 +675,7 @@ def patient_briefing(patient_id: str):
     context = _agent.memory.load_context(patient_id)
     context_text = _agent.memory.format_for_ai(context)
     briefing = inference.akashml_patient_briefing(
-        _agent.venice, "grok-41-fast",
+        _agent.venice, "llama-3.3-70b",
         patient["name"], context_text
     )
     _agent.stats["venice_calls"] += 1

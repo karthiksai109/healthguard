@@ -167,7 +167,7 @@ class HealthGuardAgent:
         # AkashML analyze against history
         recent_logs = "; ".join(f"{l['decision']}: {l['reason'][:40]}" for l in context["recent_logs"][:3])
         ai_analysis = inference.akashml_analyze(
-            self.venice, "grok-41-fast",
+            self.venice, "llama-3.3-70b",
             vision_result, vitals_summary, recent_logs,
         )
         self.stats["venice_calls"] += 1
@@ -189,7 +189,7 @@ class HealthGuardAgent:
             input_type="photo", summary=f"Vision: {vision_result.get('observations', '')[:200]}",
             decision=combined["final_decision"], reason=combined["reason"][:300],
             action_taken=", ".join(result.get("delivery", {}).get("actions_taken", ["logged"])),
-            model_used="grok-41-fast",
+            model_used="llama-3.3-70b",
             anomaly_score=ai_analysis.get("anomaly_score", 0.0),
         )
         return result
@@ -208,7 +208,7 @@ class HealthGuardAgent:
 
         # AkashML SOAP note
         soap = inference.akashml_soap_note(
-            self.venice, "grok-41-fast",
+            self.venice, "llama-3.3-70b",
             transcript, vitals_summary,
         )
         self.stats["venice_calls"] += 1
@@ -238,7 +238,7 @@ class HealthGuardAgent:
             input_type="voice", summary=f"SOAP: S={soap.get('subjective','')} A={soap.get('assessment','')}",
             decision=combined["final_decision"], reason=combined["reason"][:300],
             action_taken=", ".join(result.get("delivery", {}).get("actions_taken", ["logged"])),
-            model_used="grok-41-fast",
+            model_used="llama-3.3-70b",
             anomaly_score=ai_decision.get("anomaly_score", 0.0),
         )
         return result
@@ -246,7 +246,7 @@ class HealthGuardAgent:
     def _process_text(self, item, context, vitals_summary, result):
         """Text pipeline: AkashML SOAP → Decision → Delivery."""
         soap = inference.akashml_soap_note(
-            self.venice, "grok-41-fast",
+            self.venice, "llama-3.3-70b",
             item.text, vitals_summary,
         )
         self.stats["venice_calls"] += 1
@@ -338,7 +338,7 @@ class HealthGuardAgent:
                         context_text = self.memory.format_for_ai(context)
                         if context_text != "No patient data available yet.":
                             loop_decision = inference.akashml_loop_decision(
-                                self.venice, "grok-41-fast", context_text,
+                                self.venice, "llama-3.3-70b", context_text,
                             )
                             self.stats["venice_calls"] += 1
                             if loop_decision.get("action") in ("alert_patient", "alert_doctor"):
