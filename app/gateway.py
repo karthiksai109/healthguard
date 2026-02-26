@@ -59,6 +59,29 @@ async def startup():
     logger.info("gateway_started", port=_config.port, demo=_config.demo_mode)
 
 
+# ── Patient Registration ──────────────────────────────────────────────
+
+@app.post("/register-patient")
+async def register_patient(name: str = Form(...)):
+    """Register a new patient. Name is encrypted with AES-256-GCM before storage."""
+    if not name.strip():
+        raise HTTPException(400, "Name cannot be empty")
+    patient_id = _db.create_patient(name.strip())
+    _db.audit({
+        "type": "patient_registered",
+        "patient_id": patient_id[:8] + "...",
+        "name_encrypted": True,
+        "encryption": "AES-256-GCM",
+    })
+    logger.info("patient_registered", patient_id=patient_id, name_chars=len(name))
+    return JSONResponse({
+        "status": "registered",
+        "patient_id": patient_id,
+        "name": name.strip(),
+        "privacy": "Your name is encrypted with AES-256-GCM. Even a database breach cannot reveal it.",
+    })
+
+
 # ── Upload Endpoints ──────────────────────────────────────────────────
 
 @app.post("/upload-photo")

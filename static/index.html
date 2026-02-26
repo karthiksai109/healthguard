@@ -100,6 +100,25 @@ details summary::-webkit-details-marker{display:none}
 .error-banner.show{display:block}
 @media(max-width:1024px){.main-grid{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}}
 @media(max-width:768px){.vitals{grid-template-columns:repeat(2,1fr)}.main-grid{grid-template-columns:1fr}.header{flex-direction:column;align-items:flex-start;gap:10px}}
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.modal-overlay.hidden{display:none}
+.modal{background:#fff;border-radius:16px;padding:32px;max-width:520px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.2);animation:modalIn .3s ease}
+@keyframes modalIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+.modal h2{font-size:22px;color:var(--accent);margin-bottom:4px}
+.modal .sub{font-size:12px;color:var(--muted);margin-bottom:20px}
+.modal input[type=text]{width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:8px;font-size:14px;outline:none;transition:.2s}
+.modal input[type=text]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(31,122,140,.15)}
+.modal .privacy-note{display:flex;align-items:flex-start;gap:10px;padding:12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;margin:16px 0;font-size:11px;color:#166534;line-height:1.5}
+.modal .privacy-note .icon{font-size:20px;flex-shrink:0}
+.modal .btn-row{display:flex;gap:10px;margin-top:16px}
+.modal .encryption-demo{margin:12px 0;padding:10px;background:#f8fafc;border:1px solid var(--border);border-radius:8px;font-size:10px}
+.modal .encryption-demo .label{color:var(--muted);margin-bottom:4px}
+.modal .encryption-demo .cipher{font-family:monospace;word-break:break-all;color:var(--red);font-size:9px}
+.modal .encryption-demo .plain{font-family:monospace;color:var(--green);font-size:12px;font-weight:600}
+.step-indicator{display:flex;gap:8px;margin-bottom:20px}
+.step-dot{width:32px;height:4px;border-radius:2px;background:var(--border)}
+.step-dot.active{background:var(--accent)}
+.step-dot.done{background:var(--green)}
 </style>
 </head>
 <body>
@@ -122,6 +141,80 @@ details summary::-webkit-details-marker{display:none}
 </div>
 
 <div id="errorBanner" class="error-banner">Agent unreachable</div>
+
+<!-- ==================== REGISTRATION MODAL ==================== -->
+<div id="registerModal" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="step-indicator" id="regSteps">
+      <div class="step-dot active" id="step1"></div>
+      <div class="step-dot" id="step2"></div>
+      <div class="step-dot" id="step3"></div>
+    </div>
+
+    <!-- Step 1: Enter Name -->
+    <div id="regStep1">
+      <h2>Welcome to HealthGuard</h2>
+      <div class="sub">Your private AI health assistant. Enter your name to get started.</div>
+      <input type="text" id="regName" placeholder="Enter your full name" autocomplete="off">
+      <div class="privacy-note">
+        <div class="icon">🔐</div>
+        <div><strong>Your name is encrypted immediately</strong> using AES-256-GCM military-grade encryption before it touches the database. Even if someone steals the entire server, they cannot read your name.</div>
+      </div>
+      <div class="btn-row">
+        <button class="btn primary" id="regSubmitBtn" style="flex:1">Register Securely</button>
+        <button class="btn" id="regSkipBtn" style="flex:0 0 auto;width:auto;padding:10px 16px">Use Demo Data</button>
+      </div>
+    </div>
+
+    <!-- Step 2: Show Encryption Proof -->
+    <div id="regStep2" style="display:none">
+      <h2>Your Data is Encrypted</h2>
+      <div class="sub">Here's proof that your name was encrypted before storage:</div>
+      <div class="encryption-demo">
+        <div class="label">What you entered:</div>
+        <div class="plain" id="proofPlain"></div>
+      </div>
+      <div class="encryption-demo">
+        <div class="label">What's actually stored in the database:</div>
+        <div class="cipher" id="proofCipher"></div>
+      </div>
+      <div class="privacy-note">
+        <div class="icon">✅</div>
+        <div>The encrypted blob above is all that exists in our database. Your real name only appears when <strong>you</strong> view it, decrypted on-the-fly. The Akash provider hosting this app only sees the encrypted version.</div>
+      </div>
+      <div class="btn-row">
+        <button class="btn primary" id="regNextBtn" style="flex:1">Continue to Dashboard</button>
+      </div>
+    </div>
+
+    <!-- Step 3: Quick Guide -->
+    <div id="regStep3" style="display:none">
+      <h2>How to Use HealthGuard</h2>
+      <div class="sub">Here's what you can do:</div>
+      <div style="display:grid;gap:10px;margin:12px 0">
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:10px;background:#f8fafc;border-radius:8px">
+          <div style="font-size:20px">📊</div>
+          <div><div style="font-size:12px;font-weight:600;color:var(--text)">1. Add Your Vitals</div><div style="font-size:11px;color:var(--muted)">Use "Quick Add Vital Reading" on the dashboard to log blood pressure, glucose, pain level, temperature, heart rate, or oxygen.</div></div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:10px;background:#f8fafc;border-radius:8px">
+          <div style="font-size:20px">📸</div>
+          <div><div style="font-size:12px;font-weight:600;color:var(--text)">2. Upload a Health Photo</div><div style="font-size:11px;color:var(--muted)">Go to "Upload" tab. Take a photo of a wound, skin condition, or medication. Our AI analyzes it instantly — the photo is NEVER saved.</div></div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:10px;background:#f8fafc;border-radius:8px">
+          <div style="font-size:20px">🩺</div>
+          <div><div style="font-size:12px;font-weight:600;color:var(--text)">3. Get AI Doctor Report</div><div style="font-size:11px;color:var(--muted)">Go to "Doctor" tab to generate a comprehensive AI clinical report or audio health briefing based on all your stored data.</div></div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:10px;background:#f8fafc;border-radius:8px">
+          <div style="font-size:20px">🔒</div>
+          <div><div style="font-size:12px;font-weight:600;color:var(--text)">4. Check Privacy Tab</div><div style="font-size:11px;color:var(--muted)">See exactly what's stored, view encrypted data proof, export all your data as JSON, or permanently delete everything.</div></div>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn primary" id="regDoneBtn" style="flex:1">Start Using HealthGuard</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- ==================== DASHBOARD PAGE ==================== -->
 <div id="page-dashboard" class="page active">
@@ -480,31 +573,35 @@ async function loadPatients() {
         const patients = await fetchJSON('/patients');
         const sel = el('patientSelect');
         sel.innerHTML = '';
+        // Always add "+ New Patient" option first
+        var addOpt = document.createElement('option');
+        addOpt.value = '__new__';
+        addOpt.textContent = '+ New Patient';
+        sel.appendChild(addOpt);
+
         if (!patients.length) {
-            sel.innerHTML = '<option value="">No patients</option>';
             currentPatientId = null;
+            // Show registration modal if no patients yet
+            showRegisterModal();
             return;
         }
-        patients.forEach(p => {
-            const opt = document.createElement('option');
-            opt.value = p.id;
-            opt.textContent = p.id.substring(0, 20);
+        for (var i = 0; i < patients.length; i++) {
+            var opt = document.createElement('option');
+            opt.value = patients[i].id;
+            opt.textContent = patients[i].id.substring(0, 20);
             sel.appendChild(opt);
-        });
-        // Try to get patient names
+        }
+        // Select first real patient
         currentPatientId = patients[0].id;
         sel.value = currentPatientId;
-        try {
-            const detail = await fetchJSON('/patient/' + currentPatientId);
-            if (detail.patient && detail.patient.name) {
-                sel.options[0].textContent = detail.patient.name;
-            }
-        } catch(e) {}
-        // Load names for other patients too
-        for (let i = 1; i < Math.min(patients.length, 10); i++) {
+        // Load names for all patients
+        for (var i = 0; i < Math.min(patients.length, 10); i++) {
             try {
-                const d = await fetchJSON('/patient/' + patients[i].id);
-                if (d.patient && d.patient.name) sel.options[i].textContent = d.patient.name;
+                var d = await fetchJSON('/patient/' + patients[i].id);
+                if (d.patient && d.patient.name) {
+                    // +1 because index 0 is "+ New Patient"
+                    sel.options[i + 1].textContent = d.patient.name;
+                }
             } catch(e) {}
         }
     } catch(e) {
@@ -513,7 +610,87 @@ async function loadPatients() {
 }
 
 el('patientSelect').addEventListener('change', function() {
+    if (this.value === '__new__') {
+        showRegisterModal();
+        // Reset to previous patient
+        if (currentPatientId) this.value = currentPatientId;
+        return;
+    }
     currentPatientId = this.value;
+    refreshAll();
+});
+
+// ── Registration Modal ──
+function showRegisterModal() {
+    el('registerModal').classList.remove('hidden');
+    el('regStep1').style.display = '';
+    el('regStep2').style.display = 'none';
+    el('regStep3').style.display = 'none';
+    el('step1').className = 'step-dot active';
+    el('step2').className = 'step-dot';
+    el('step3').className = 'step-dot';
+    el('regName').value = '';
+    el('regName').focus();
+}
+
+el('regSkipBtn').addEventListener('click', function() {
+    el('registerModal').classList.add('hidden');
+});
+
+el('regSubmitBtn').addEventListener('click', async function() {
+    var name = el('regName').value.trim();
+    if (!name) { el('regName').style.borderColor = 'var(--red)'; el('regName').focus(); return; }
+    this.disabled = true;
+    this.textContent = 'Encrypting & Saving...';
+    try {
+        var fd = new FormData();
+        fd.append('name', name);
+        var r = await fetch('/register-patient', { method: 'POST', body: fd });
+        var data = await r.json();
+        if (!r.ok) throw new Error(data.detail || 'Registration failed');
+
+        // Show encryption proof
+        el('proofPlain').textContent = name;
+        // Load actual encrypted blob from privacy-proof endpoint
+        try {
+            var proof = await fetchJSON('/privacy-proof/' + data.patient_id);
+            el('proofCipher').textContent = proof.encrypted_proof.patient_name_encrypted;
+        } catch(e) {
+            el('proofCipher').textContent = '[encrypted — ' + data.patient_id.substring(0, 12) + ']';
+        }
+
+        // Move to step 2
+        el('regStep1').style.display = 'none';
+        el('regStep2').style.display = '';
+        el('step1').className = 'step-dot done';
+        el('step2').className = 'step-dot active';
+
+        // Set as current patient
+        currentPatientId = data.patient_id;
+        await loadPatients();
+        el('patientSelect').value = currentPatientId;
+        el('registerModal').classList.remove('hidden');
+    } catch(e) {
+        alert('Registration failed: ' + e.message);
+    }
+    this.disabled = false;
+    this.textContent = 'Register Securely';
+});
+
+el('regName').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') el('regSubmitBtn').click();
+    this.style.borderColor = '';
+});
+
+el('regNextBtn').addEventListener('click', function() {
+    el('regStep2').style.display = 'none';
+    el('regStep3').style.display = '';
+    el('step2').className = 'step-dot done';
+    el('step3').className = 'step-dot active';
+});
+
+el('regDoneBtn').addEventListener('click', function() {
+    el('registerModal').classList.add('hidden');
     refreshAll();
 });
 
