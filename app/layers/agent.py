@@ -157,23 +157,21 @@ class HealthGuardAgent:
         return result
 
     def _process_photo(self, item, context, vitals_summary, result):
-        """Photo pipeline: Venice Vision → AkashML Analyze → Decision → Delivery."""
-        # Venice Vision
+        """Photo pipeline: Single Venice Vision call (analysis+triage) → Decision → Delivery."""
+        # Single Venice Vision call — does both analysis AND triage
         vision_result = inference.venice_vision(self.config, self.venice, item.raw_bytes)
         self.venice_endpoints_used.add("vision")
         self.stats["venice_calls"] += 1
         result["vision"] = vision_result
+        result["ai_analysis"] = vision_result
 
-        # AkashML analyze against history
-        recent_logs = "; ".join(f"{l['decision']}: {l['reason'][:40]}" for l in context["recent_logs"][:3])
-        ai_analysis = inference.akashml_analyze(
-            self.venice, "llama-3.3-70b",
-            vision_result, vitals_summary, recent_logs,
-        )
-        self.stats["venice_calls"] += 1
-        result["ai_analysis"] = ai_analysis
-
-        # Decision engine
+        # Decision engine — use vision result directly as ai_analysis
+        sev_map = {"green_self_care": 0.2, "yellow_see_doctor": 0.5, "orange_urgent_care": 0.7, "red_emergency": 0.95}
+        ai_analysis = {
+            "anomaly_score": sev_map.get(vision_result.get("emergency_level", ""), 0.5),
+            "severity": vision_result.get("severity", "moderate"),
+            "recommendation": vision_result.get("patient_message", ""),
+        }
         rule_results = decision.evaluate_rules(context["latest_vitals"])
         combined = decision.combine_decisions(rule_results, ai_analysis)
         result["decision"] = combined
@@ -189,7 +187,7 @@ class HealthGuardAgent:
             input_type="photo", summary=f"Vision: {vision_result.get('observations', '')[:200]}",
             decision=combined["final_decision"], reason=combined["reason"][:300],
             action_taken=", ".join(result.get("delivery", {}).get("actions_taken", ["logged"])),
-            model_used="llama-3.3-70b",
+            model_used="venice-vision",
             anomaly_score=ai_analysis.get("anomaly_score", 0.0),
         )
         return result

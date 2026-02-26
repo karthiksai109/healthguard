@@ -42,8 +42,9 @@ def venice_stt(config: AppConfig, audio_bytes: bytes) -> str:
 
 # ── Venice Vision — Image Analysis (Qwen2.5-VL 235B) ────────────────
 
-VISION_SCHEMA_PROMPT = """Medical image analysis AI. Analyze and return ONLY JSON:
-{"image_type":"wound|burn|rash|bruise|skin_lesion|other","observations":"what you see","severity":"mild|moderate|severe|critical","infection_risk":"low|moderate|high","confidence":0.0-1.0,"primary_concern":"main finding","immediate_actions":["action1"],"requires_doctor":true,"doctor_urgency":"not_needed|within_week|within_24h|immediately","patient_summary":"2 sentence plain summary"}"""
+VISION_SCHEMA_PROMPT = """Medical image triage AI. Analyze image and return ONLY JSON:
+{"image_type":"wound|burn|rash|bruise|skin_lesion|other","observations":"what you see","severity":"mild|moderate|severe|critical","infection_risk":"low|moderate|high","confidence":0.0-1.0,"primary_concern":"main finding","immediate_actions":["action1"],"requires_doctor":true,"doctor_urgency":"not_needed|within_week|within_24h|immediately","patient_summary":"2 sentence plain summary","emergency_level":"green_self_care|yellow_see_doctor|orange_urgent_care|red_emergency","emergency_explanation":"why this level","diagnosis_assessment":{"most_likely":"diagnosis","confidence":0.0-1.0},"treatment_plan":[{"action":"what","timeframe":"when"}],"medications":[{"name":"drug","type":"OTC|prescription","dosage":"dose"}],"doctor_notification":{"notify_now":false,"reason":"why","key_findings":"findings"},"patient_message":"2-3 sentence reassurance or warning"}
+Be specific. Reassure if mild, be direct if serious."""
 
 
 def venice_vision(config: AppConfig, client: OpenAI, image_bytes: bytes) -> dict:
@@ -73,7 +74,7 @@ def venice_vision(config: AppConfig, client: OpenAI, image_bytes: bytes) -> dict
                     ],
                 },
             ],
-            max_tokens=500,
+            max_tokens=400,
             temperature=0.1,
         )
         raw = resp.choices[0].message.content.strip()

@@ -520,58 +520,44 @@ async def analyze_photo(
 
     clean_bytes = ingestion.strip_exif(raw)
 
-    # Step 1: Venice Vision — analyze the actual image (zero retention)
-    vision_result = inference.venice_vision(_config, _agent.venice, clean_bytes)
+    # Single Venice Vision call — does BOTH image analysis AND clinical triage
+    result = inference.venice_vision(_config, _agent.venice, clean_bytes)
     _agent.venice_endpoints_used.add("vision")
     _agent.stats["venice_calls"] += 1
 
-    # Step 2: Load patient context for AkashML
-    patient_context = ""
-    patient = _db.get_patient(patient_id)
-    if patient:
-        context = _agent.memory.load_context(patient_id)
-        patient_context = _agent.memory.format_for_ai(context)
-
-    # Step 3: AkashML Clinical Triage — full treatment plan
-    triage = inference.akashml_clinical_triage(
-        _agent.venice, "llama-3.3-70b",
-        vision_result, patient_context, note,
-    )
-    _agent.stats["venice_calls"] += 1
-
-    # Step 4: Log (structured text only — no image stored)
+    # Log (structured text only — no image stored)
     sev_map = {"green_self_care": "normal", "yellow_see_doctor": "monitor", "orange_urgent_care": "alert", "red_emergency": "escalate"}
-    decision_str = sev_map.get(triage.get("emergency_level", ""), "monitor")
+    decision_str = sev_map.get(result.get("emergency_level", ""), "monitor")
     _db.record_log(
         patient_id=patient_id, session_id=f"instant_{int(time.time())}",
-        input_type="photo", summary=f"Vision: {vision_result.get('observations', '')[:300]}",
+        input_type="photo", summary=f"Vision: {result.get('observations', '')[:300]}",
         decision=decision_str,
-        reason=triage.get("emergency_explanation", vision_result.get("patient_summary", ""))[:300],
+        reason=result.get("emergency_explanation", result.get("patient_summary", ""))[:300],
         action_taken="instant_analysis",
-        model_used=_config.akashml.primary_model,
-        anomaly_score=triage.get("diagnosis_assessment", {}).get("confidence", 0.5),
+        model_used="venice-vision",
+        anomaly_score=result.get("diagnosis_assessment", {}).get("confidence", 0.5),
     )
 
-    # Step 5: If serious, trigger doctor notification
+    # If serious, trigger doctor notification
     doctor_notified = False
-    if triage.get("emergency_level") in ("orange_urgent_care", "red_emergency"):
-        notify = triage.get("doctor_notification", {})
+    if result.get("emergency_level") in ("orange_urgent_care", "red_emergency"):
+        notify = result.get("doctor_notification", {})
         alert_msg = f"URGENT: {notify.get('reason', 'Serious condition detected')} — {notify.get('key_findings', '')}"
-        sev = 1 if triage["emergency_level"] == "red_emergency" else 2
+        sev = 1 if result["emergency_level"] == "red_emergency" else 2
         _db.record_alert(patient_id, sev, alert_msg, action_taken="doctor_notified,instant_analysis")
         doctor_notified = True
 
     _db.audit({
         "type": "instant_photo_analysis",
         "patient_id": patient_id[:8] + "...",
-        "emergency_level": triage.get("emergency_level"),
+        "emergency_level": result.get("emergency_level"),
         "doctor_notified": doctor_notified,
     })
 
     # Image bytes are now garbage collected — never stored to disk
     return JSONResponse({
-        "vision": vision_result,
-        "triage": triage,
+        "vision": result,
+        "triage": result,
         "doctor_notified": doctor_notified,
         "privacy": {
             "image_stored": False,

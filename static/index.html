@@ -884,7 +884,8 @@ async function sendChat() {
         appendChatBubble('user', (msg || 'Please analyze this health photo') + '\n[Photo attached]');
         $('chatInput').value = '';
         scrollChat();
-        $('typingIndicator').classList.add('show');
+        appendChatBubble('assistant', '🔍 Analyzing image... (one moment)');
+        scrollChat();
         try {
             var fd = new FormData();
             fd.append('file', chatPendingPhoto);
@@ -892,12 +893,32 @@ async function sendChat() {
             fd.append('note', msg || '');
             var r = await fetch('/analyze-photo', { method: 'POST', body: fd });
             var d = await r.json();
+            // Remove the "Analyzing..." bubble
+            var bubbles = document.querySelectorAll('.chat-bubble.assistant');
+            if (bubbles.length) bubbles[bubbles.length - 1].remove();
+            var t = d.triage || d.vision || {};
             var response = '';
-            if (d.vision) response += 'Image Analysis:\n' + (d.vision.observations || d.vision.patient_summary || JSON.stringify(d.vision).substring(0, 300));
-            if (d.triage) response += '\n\nClinical Assessment:\n' + (d.triage.emergency_explanation || '') + '\nEmergency Level: ' + (d.triage.emergency_level || 'unknown');
-            if (d.triage && d.triage.recommended_medications) response += '\nMedications: ' + JSON.stringify(d.triage.recommended_medications);
-            appendChatBubble('assistant', response || 'Analysis complete.');
+            var lvl = (t.emergency_level || 'unknown').replace(/_/g, ' ').toUpperCase();
+            response += '⚕️ Emergency Level: ' + lvl + '\n\n';
+            if (t.patient_message) response += t.patient_message + '\n\n';
+            if (t.observations) response += '🔎 Observations: ' + t.observations + '\n\n';
+            if (t.primary_concern) response += '⚠️ Primary Concern: ' + t.primary_concern + '\n';
+            if (t.severity) response += 'Severity: ' + t.severity + ' | Infection Risk: ' + (t.infection_risk || 'unknown') + '\n\n';
+            if (t.treatment_plan && t.treatment_plan.length) {
+                response += '📋 Treatment Plan:\n';
+                t.treatment_plan.forEach(function(s) { response += '• ' + s.action + ' (' + s.timeframe + ')\n'; });
+                response += '\n';
+            }
+            if (t.medications && t.medications.length) {
+                response += '💊 Medications:\n';
+                t.medications.forEach(function(m) { response += '• ' + m.name + ' ' + (m.dosage||'') + ' (' + m.type + ')\n'; });
+                response += '\n';
+            }
+            if (t.doctor_urgency && t.doctor_urgency !== 'not_needed') response += '🏥 Doctor: See ' + t.doctor_urgency.replace(/_/g, ' ') + '\n';
+            appendChatBubble('assistant', response.trim() || 'Analysis complete.');
         } catch(e) {
+            var bubbles2 = document.querySelectorAll('.chat-bubble.assistant');
+            if (bubbles2.length) bubbles2[bubbles2.length - 1].remove();
             appendChatBubble('assistant', 'Sorry, photo analysis failed: ' + e.message);
         }
         chatPendingPhoto = null;
