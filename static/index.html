@@ -852,7 +852,9 @@ function appendChatBubble(role, content, ts) {
     if (welcome) welcome.style.display = 'none';
     var div = document.createElement('div');
     div.className = 'chat-msg ' + role;
-    var cleanContent = content.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+    // Strip [VITALS]...[/VITALS] tags from display
+    var stripped = content.replace(/\[VITALS\][\s\S]*?\[\/VITALS\]/g, '').replace(/\[Vitals auto-saved:[^\]]*\]/g, '').trim();
+    var cleanContent = stripped.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
     div.innerHTML = cleanContent + '<div class="time">' + (ts ? ts.substring(11, 19) : new Date().toTimeString().substring(0, 8)) + '</div>';
     $('chatMessages').appendChild(div);
 }
@@ -894,9 +896,11 @@ async function sendChat() {
             var r = await fetch('/analyze-photo', { method: 'POST', body: fd });
             var d = await r.json();
             // Remove the "Analyzing..." bubble
-            var bubbles = document.querySelectorAll('.chat-bubble.assistant');
+            var bubbles = document.querySelectorAll('.chat-msg.assistant');
             if (bubbles.length) bubbles[bubbles.length - 1].remove();
-            var t = d.triage || d.vision || {};
+            // Parse if string
+            var raw = d.triage || d.vision || {};
+            var t = (typeof raw === 'string') ? (function(){ try { return JSON.parse(raw); } catch(e) { return {}; } })() : raw;
             var response = '';
             var lvl = (t.emergency_level || 'unknown').replace(/_/g, ' ').toUpperCase();
             response += '⚕️ Emergency Level: ' + lvl + '\n\n';
@@ -917,7 +921,7 @@ async function sendChat() {
             if (t.doctor_urgency && t.doctor_urgency !== 'not_needed') response += '🏥 Doctor: See ' + t.doctor_urgency.replace(/_/g, ' ') + '\n';
             appendChatBubble('assistant', response.trim() || 'Analysis complete.');
         } catch(e) {
-            var bubbles2 = document.querySelectorAll('.chat-bubble.assistant');
+            var bubbles2 = document.querySelectorAll('.chat-msg.assistant');
             if (bubbles2.length) bubbles2[bubbles2.length - 1].remove();
             appendChatBubble('assistant', 'Sorry, photo analysis failed: ' + e.message);
         }
@@ -958,12 +962,11 @@ async function sendChat() {
                     var ev = JSON.parse(line.substring(6));
                     if (ev.t) {
                         fullText += ev.t;
-                        streamEl.innerHTML = fullText.replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+                        var displayText = fullText.replace(/\[VITALS\][\s\S]*?\[\/VITALS\]/g, '').replace(/\[VITALS\][\s\S]*/g, '').trim();
+                        streamEl.innerHTML = displayText.replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
                         scrollChat();
                     }
                     if (ev.done && ev.vitals_extracted && Object.keys(ev.vitals_extracted).length > 0) {
-                        fullText += '\n\n[Vitals auto-saved: ' + Object.entries(ev.vitals_extracted).map(function(e){return e[0]+'='+e[1];}).join(', ') + ']';
-                        streamEl.innerHTML = fullText.replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
                         refreshVitals();
                     }
                 } catch(pe) {}
