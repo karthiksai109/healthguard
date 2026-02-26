@@ -707,7 +707,7 @@ def wound_timeline(patient_id: str):
 @app.get("/", response_class=HTMLResponse)
 def dashboard():
     index_path = os.path.join(STATIC_DIR, "index.html")
-    return FileResponse(index_path)
+    return FileResponse(index_path, headers={"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache", "Expires": "0"})
 
 
 # ── Privacy Proof — Verifiable Encryption Status ─────────────────────

@@ -876,6 +876,45 @@ function createStreamBubble() {
     return div.querySelector('.stream-content');
 }
 
+function _fmtPhoto(d) {
+    var v = d.vision || {}; var tr = d.triage || {};
+    if (typeof v === 'string') { try { v = JSON.parse(v); } catch(e) { v = {}; } }
+    if (typeof tr === 'string') { try { tr = JSON.parse(tr); } catch(e) { tr = {}; } }
+    var t = Object.assign({}, v, tr);
+    var lines = [];
+    var lvl = t.emergency_level || '';
+    if (lvl) lines.push('⚕️ Emergency Level: ' + lvl.replace(/_/g, ' ').toUpperCase());
+    if (t.patient_summary) lines.push('\n' + t.patient_summary);
+    if (t.patient_message && t.patient_message !== t.patient_summary) lines.push('\n' + t.patient_message);
+    if (t.observations && typeof t.observations === 'string') lines.push('\n🔎 ' + t.observations);
+    var meta = [];
+    if (t.image_type) meta.push('Type: ' + t.image_type);
+    if (t.severity) meta.push('Severity: ' + t.severity);
+    if (t.infection_risk) meta.push('Infection Risk: ' + t.infection_risk);
+    if (t.confidence) meta.push('Confidence: ' + Math.round(t.confidence * 100) + '%');
+    if (meta.length) lines.push(meta.join(' | '));
+    if (t.primary_concern) lines.push('\n⚠️ Primary Concern: ' + t.primary_concern);
+    if (t.emergency_explanation) lines.push(t.emergency_explanation);
+    var dx = t.diagnosis_assessment;
+    if (dx && typeof dx === 'object' && dx.most_likely) lines.push('\n🩺 Likely Diagnosis: ' + dx.most_likely + (dx.confidence ? ' (' + Math.round(dx.confidence*100) + '%)' : ''));
+    if (t.immediate_actions && Array.isArray(t.immediate_actions) && t.immediate_actions.length) {
+        lines.push('\n🚨 Immediate Actions:');
+        t.immediate_actions.forEach(function(a) { lines.push('  • ' + a); });
+    }
+    if (t.treatment_plan && Array.isArray(t.treatment_plan) && t.treatment_plan.length) {
+        lines.push('\n📋 Treatment Plan:');
+        t.treatment_plan.forEach(function(s) { lines.push('  • ' + (typeof s === 'object' ? (s.action||'') + (s.timeframe ? ' (' + s.timeframe + ')' : '') : s)); });
+    }
+    if (t.medications && Array.isArray(t.medications) && t.medications.length) {
+        lines.push('\n💊 Medications:');
+        t.medications.forEach(function(m) { lines.push('  • ' + (typeof m === 'object' ? (m.name||'') + ' ' + (m.dosage||'') + ' (' + (m.type||'') + ')' : m)); });
+    }
+    if (t.requires_doctor) lines.push('\n🏥 See Doctor: ' + (t.doctor_urgency || 'recommended').replace(/_/g, ' '));
+    var dn = t.doctor_notification;
+    if (dn && typeof dn === 'object' && dn.notify_now) lines.push('⚡ Doctor notified: ' + (dn.reason || ''));
+    return lines.length ? lines.join('\n') : 'Analysis complete.';
+}
+
 async function sendChat() {
     var msg = $('chatInput').value.trim();
     if (!msg && !chatPendingPhoto) return;
@@ -898,28 +937,7 @@ async function sendChat() {
             // Remove the "Analyzing..." bubble
             var bubbles = document.querySelectorAll('.chat-msg.assistant');
             if (bubbles.length) bubbles[bubbles.length - 1].remove();
-            // Parse if string
-            var raw = d.triage || d.vision || {};
-            var t = (typeof raw === 'string') ? (function(){ try { return JSON.parse(raw); } catch(e) { return {}; } })() : raw;
-            var response = '';
-            var lvl = (t.emergency_level || 'unknown').replace(/_/g, ' ').toUpperCase();
-            response += '⚕️ Emergency Level: ' + lvl + '\n\n';
-            if (t.patient_message) response += t.patient_message + '\n\n';
-            if (t.observations) response += '🔎 Observations: ' + t.observations + '\n\n';
-            if (t.primary_concern) response += '⚠️ Primary Concern: ' + t.primary_concern + '\n';
-            if (t.severity) response += 'Severity: ' + t.severity + ' | Infection Risk: ' + (t.infection_risk || 'unknown') + '\n\n';
-            if (t.treatment_plan && t.treatment_plan.length) {
-                response += '📋 Treatment Plan:\n';
-                t.treatment_plan.forEach(function(s) { response += '• ' + s.action + ' (' + s.timeframe + ')\n'; });
-                response += '\n';
-            }
-            if (t.medications && t.medications.length) {
-                response += '💊 Medications:\n';
-                t.medications.forEach(function(m) { response += '• ' + m.name + ' ' + (m.dosage||'') + ' (' + m.type + ')\n'; });
-                response += '\n';
-            }
-            if (t.doctor_urgency && t.doctor_urgency !== 'not_needed') response += '🏥 Doctor: See ' + t.doctor_urgency.replace(/_/g, ' ') + '\n';
-            appendChatBubble('assistant', response.trim() || 'Analysis complete.');
+            appendChatBubble('assistant', _fmtPhoto(d));
         } catch(e) {
             var bubbles2 = document.querySelectorAll('.chat-msg.assistant');
             if (bubbles2.length) bubbles2[bubbles2.length - 1].remove();
