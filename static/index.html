@@ -629,19 +629,42 @@ function enterDoctorApp(doc) {
 
 // ── LOGOUT ──
 $('logoutBtn').addEventListener('click', async function() {
-    if (!confirm('Logout? Your chat history will be cleared.')) return;
-    try { await fetch('/clear-chat/' + currentPatientId, { method: 'POST' }); } catch(e) {}
+    if (!confirm('Logout?')) return;
+    try { if (currentPatientId) await fetch('/clear-chat/' + currentPatientId, { method: 'POST' }); } catch(e) {}
+    // Reset ALL state
     currentPatientId = null; currentAccessKey = null; currentName = null;
+    currentRole = 'patient'; currentDoctorId = null; currentDoctorInfo = null;
+    // Reset UI
     $('authOverlay').classList.remove('hidden');
     $('mainApp').style.display = 'none';
     $('loginKey').value = '';
-    $('chatMessages').innerHTML = $('chatMessages').querySelector('.chat-welcome') ? $('chatMessages').innerHTML : '';
+    // Clear all dynamic content to prevent cross-user data leaks
+    var welcome = $('chatWelcome');
+    $('chatMessages').innerHTML = '';
+    if (welcome) $('chatMessages').appendChild(welcome);
+    if (welcome) welcome.style.display = '';
+    $('bpChart').innerHTML = '<div class="empty-state"><div class="icon">&#128200;</div>Need at least 2 BP readings</div>';
+    $('bpValue').textContent = '--'; $('glucoseValue').textContent = '--';
+    $('painValue').textContent = '--'; $('tempValue').textContent = '--';
+    $('actionsList').innerHTML = '<div class="empty-state"><div class="icon">&#128276;</div>No alerts yet</div>';
+    $('feedList').innerHTML = '<div class="empty-state" style="padding:12px"><div class="icon">&#128225;</div>Events appear here</div>';
+    $('recentAnalysis').innerHTML = '<div class="empty-state"><div class="icon">&#128300;</div>No analyses yet</div>';
+    $('historyList').innerHTML = '';
+    $('doctorReportArea').innerHTML = '<div class="empty-state"><div class="icon">&#129658;</div>Click "Generate Doctor Report" to create an AI clinical summary.</div>';
+    $('audioBriefingArea').innerHTML = '';
+    $('doctorsList').innerHTML = ''; $('myConsultations').innerHTML = '';
+    $('docConsultations').innerHTML = ''; $('docPatientData').innerHTML = '';
+    $('doctorSuggestion').innerHTML = '';
+    // Reset auth forms
     $('regResult').style.display = 'none';
     $('regBtn').style.display = '';
     $('regName').style.display = '';
     $('regName').value = '';
+    $('docRegResult').style.display = 'none';
+    $('docRegBtn').style.display = '';
+    $('docLoginKey').value = '';
     $('authMsg').classList.remove('show');
-    $('tabLogin').click();
+    setAuthTab('tabLogin');
 });
 
 // ── NAV ──
@@ -681,9 +704,11 @@ function setBadge(prefix, status) {
 }
 
 async function refreshVitals() {
-    if (!currentPatientId) return;
+    if (!currentPatientId || currentRole !== 'patient') return;
+    var pid = currentPatientId;
     try {
-        var d = await fetchJSON('/patient/' + currentPatientId);
+        var d = await fetchJSON('/patient/' + pid);
+        if (pid !== currentPatientId) return; // User switched — discard stale data
         var v = d.latest_vitals || {};
         if (v.bp_systolic) {
             $('bpValue').textContent = Math.round(v.bp_systolic.value) + '/' + (v.bp_diastolic ? Math.round(v.bp_diastolic.value) : '--') + ' mmHg';
@@ -732,28 +757,36 @@ $('addVitalBtn').addEventListener('click', async function() {
     if (!currentPatientId) return;
     var type = $('vitalType').value, v1 = parseFloat($('vitalVal1').value);
     if (isNaN(v1)) return;
-    var calls = [];
-    if (type === 'bp') {
-        var v2 = parseFloat($('vitalVal2').value);
-        if (isNaN(v2)) return;
-        var fd1 = new FormData(); fd1.append('patient_id', currentPatientId); fd1.append('metric_type', 'bp_systolic'); fd1.append('value', v1); fd1.append('unit', 'mmHg');
-        var fd2 = new FormData(); fd2.append('patient_id', currentPatientId); fd2.append('metric_type', 'bp_diastolic'); fd2.append('value', v2); fd2.append('unit', 'mmHg');
-        calls = [fetch('/vital', { method: 'POST', body: fd1 }), fetch('/vital', { method: 'POST', body: fd2 })];
-    } else {
-        var fd = new FormData(); fd.append('patient_id', currentPatientId); fd.append('metric_type', type); fd.append('value', v1);
-        calls = [fetch('/vital', { method: 'POST', body: fd })];
-    }
-    await Promise.all(calls);
-    $('vitalVal1').value = ''; $('vitalVal2').value = '';
-    $('vitalSaveMsg').textContent = 'Saved!'; setTimeout(function() { $('vitalSaveMsg').textContent = ''; }, 2000);
-    refreshVitals();
+    this.disabled = true; this.textContent = 'Saving...';
+    try {
+        var calls = [];
+        if (type === 'bp') {
+            var v2 = parseFloat($('vitalVal2').value);
+            if (isNaN(v2)) { this.disabled = false; this.textContent = 'Add'; return; }
+            var fd1 = new FormData(); fd1.append('patient_id', currentPatientId); fd1.append('metric_type', 'bp_systolic'); fd1.append('value', v1); fd1.append('unit', 'mmHg');
+            var fd2 = new FormData(); fd2.append('patient_id', currentPatientId); fd2.append('metric_type', 'bp_diastolic'); fd2.append('value', v2); fd2.append('unit', 'mmHg');
+            calls = [fetch('/vital', { method: 'POST', body: fd1 }), fetch('/vital', { method: 'POST', body: fd2 })];
+        } else {
+            var fd = new FormData(); fd.append('patient_id', currentPatientId); fd.append('metric_type', type); fd.append('value', v1);
+            calls = [fetch('/vital', { method: 'POST', body: fd })];
+        }
+        await Promise.all(calls);
+        $('vitalVal1').value = ''; $('vitalVal2').value = '';
+        $('vitalSaveMsg').textContent = 'Saved!';
+        setTimeout(function() { $('vitalSaveMsg').textContent = ''; }, 2000);
+        // Wait briefly for DB commit before refreshing
+        setTimeout(refreshVitals, 500);
+    } catch(e) { $('vitalSaveMsg').textContent = 'Error saving'; }
+    this.disabled = false; this.textContent = 'Add';
 });
 
 // ── ACTIONS & FEED ──
 async function refreshActions() {
-    if (!currentPatientId) return;
+    if (!currentPatientId || currentRole !== 'patient') return;
+    var pid = currentPatientId;
     try {
-        var alerts = await fetchJSON('/alerts?patient_id=' + currentPatientId + '&limit=10');
+        var alerts = await fetchJSON('/alerts?patient_id=' + pid + '&limit=10');
+        if (pid !== currentPatientId) return;
         if (!alerts.length) { $('actionsList').innerHTML = '<div class="empty-state"><div class="icon">&#128276;</div>No alerts yet</div>'; return; }
         $('actionsList').innerHTML = alerts.map(function(a) {
             var cls = a.severity === 1 ? 'red' : a.severity === 2 ? 'yellow' : 'green';
@@ -763,9 +796,11 @@ async function refreshActions() {
 }
 
 async function refreshFeed() {
-    if (!currentPatientId) return;
+    if (!currentPatientId || currentRole !== 'patient') return;
+    var pid = currentPatientId;
     try {
         var audit = await fetchJSON('/audit?limit=20');
+        if (pid !== currentPatientId) return;
         if (!audit.length) return;
         $('feedList').innerHTML = audit.reverse().map(function(e) {
             return '<div class="feed-item">' + (e.timestamp || '').substring(11, 19) + ' - ' + (e.type || '') + '</div>';
@@ -774,9 +809,11 @@ async function refreshFeed() {
 }
 
 async function refreshRecentAnalysis() {
-    if (!currentPatientId) return;
+    if (!currentPatientId || currentRole !== 'patient') return;
+    var pid = currentPatientId;
     try {
-        var logs = await fetchJSON('/logs?patient_id=' + currentPatientId + '&limit=3');
+        var logs = await fetchJSON('/logs?patient_id=' + pid + '&limit=3');
+        if (pid !== currentPatientId) return;
         if (!logs.length) { $('recentAnalysis').innerHTML = '<div class="empty-state"><div class="icon">&#128300;</div>No analyses yet</div>'; return; }
         $('recentAnalysis').innerHTML = logs.map(function(l) {
             var cls = l.anomaly_score >= 0.7 ? 'red' : l.anomaly_score >= 0.4 ? 'yellow' : 'green';
@@ -794,7 +831,7 @@ async function refreshStatus() {
     } catch(e) { $('errorBanner').classList.add('show'); }
 }
 
-function refreshAll() { refreshVitals(); refreshActions(); refreshFeed(); refreshStatus(); refreshRecentAnalysis(); }
+function refreshAll() { if (currentRole !== 'patient') return; refreshVitals(); refreshActions(); refreshFeed(); refreshStatus(); refreshRecentAnalysis(); }
 
 // ── HEALTH CHAT ──
 async function loadChatHistory() {

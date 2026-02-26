@@ -29,7 +29,7 @@ class EncryptionEngine:
             algorithm=hashes.SHA256(),
             length=32,
             salt=salt_bytes,
-            iterations=100_000,
+            iterations=1_000,
         )
         self._key = kdf.derive(passphrase.encode("utf-8"))
         self._aesgcm = AESGCM(self._key)
@@ -58,8 +58,10 @@ class Database:
         logger.info("database_initialized", path=self.db_path)
 
     def _conn(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.db_path)
+        conn = sqlite3.connect(self.db_path, timeout=10)
         conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=5000")
         return conn
 
     def _init_tables(self):
@@ -160,12 +162,12 @@ class Database:
     def _generate_access_key(self) -> str:
         """Generate a unique 6-char alphanumeric access key."""
         import random, string
-        for _ in range(100):
-            key = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
-            with self._conn() as conn:
+        with self._conn() as conn:
+            for _ in range(100):
+                key = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
                 existing = conn.execute("SELECT id FROM patients WHERE access_key = ?", (key,)).fetchone()
-            if not existing:
-                return key
+                if not existing:
+                    return key
         return str(uuid.uuid4())[:8].upper()
 
     def create_patient(self, name: str, patient_id: str = None) -> tuple:
@@ -245,11 +247,16 @@ class Database:
         """Get latest value for each metric type."""
         with self._conn() as conn:
             rows = conn.execute("""
-                SELECT metric_type, value, unit, timestamp
-                FROM vitals WHERE patient_id = ? 
-                GROUP BY metric_type HAVING MAX(timestamp)
-                ORDER BY timestamp DESC
-            """, (patient_id,)).fetchall()
+                SELECT v.metric_type, v.value, v.unit, v.timestamp
+                FROM vitals v
+                INNER JOIN (
+                    SELECT metric_type, MAX(timestamp) as max_ts
+                    FROM vitals WHERE patient_id = ?
+                    GROUP BY metric_type
+                ) latest ON v.metric_type = latest.metric_type AND v.timestamp = latest.max_ts
+                WHERE v.patient_id = ?
+                ORDER BY v.timestamp DESC
+            """, (patient_id, patient_id)).fetchall()
         return {r["metric_type"]: {"value": r["value"], "unit": r["unit"], "timestamp": r["timestamp"]} for r in rows}
 
     # ── Logs ──────────────────────────────────────────────────────────
@@ -360,12 +367,12 @@ class Database:
     # ── Doctors ─────────────────────────────────────────────────────────
     def _generate_doctor_access_key(self) -> str:
         import random, string
-        for _ in range(100):
-            key = 'DR' + ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
-            with self._conn() as conn:
+        with self._conn() as conn:
+            for _ in range(100):
+                key = 'DR' + ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
                 existing = conn.execute("SELECT id FROM doctors WHERE access_key = ?", (key,)).fetchone()
-            if not existing:
-                return key
+                if not existing:
+                    return key
         return 'DR' + str(uuid.uuid4())[:6].upper()
 
     def create_doctor(self, name: str, email: str, specialization: str,
