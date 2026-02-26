@@ -16,7 +16,8 @@ import io
 import os
 import time
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
+import json as _json
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import structlog
@@ -100,88 +101,101 @@ async def login(access_key: str = Form(...)):
 
 # ── Health Chat — AI Conversation ─────────────────────────────────────
 
+_CHAT_SYSTEM = """You are HealthGuard, a concise AI health assistant on Akash decentralized cloud.
+Be empathetic, accurate, and brief (2-4 sentences unless detail is needed). Recommend a doctor for serious issues.
+If vitals are mentioned, append: [VITALS]{{"bp_systolic":130}}[/VITALS] (only mentioned ones)."""
+
+
+def _build_chat_msgs(patient, patient_id, message):
+    context = _agent.memory.load_context(patient_id)
+    ctx = _agent.memory.format_for_ai(context)[:400]
+    hist = _db.get_chat_history(patient_id, limit=4)
+    msgs = [{"role": "system", "content": _CHAT_SYSTEM + f"\nPatient: {patient['name']}\nContext: {ctx}"}]
+    for m in hist[-3:]:
+        msgs.append({"role": m["role"], "content": m["content"][-150:]})
+    msgs.append({"role": "user", "content": message.strip()})
+    return msgs
+
+
+def _extract_vitals(patient_id, text):
+    extracted = {}
+    if "[VITALS]" in text and "[/VITALS]" in text:
+        try:
+            vs = text.split("[VITALS]")[1].split("[/VITALS]")[0]
+            extracted = _json.loads(vs)
+            for k, v in extracted.items():
+                if isinstance(v, (int, float)):
+                    _db.record_vital(patient_id, k, float(v), source="chat_extracted")
+            text = text.split("[VITALS]")[0].strip()
+        except Exception:
+            pass
+    return text, extracted
+
+
 @app.post("/chat")
-async def health_chat(
-    patient_id: str = Form(...),
-    message: str = Form(...),
-):
-    """ChatGPT-style health conversation. AI responds with health advice,
-    extracts vitals if mentioned, and stores the health insights."""
+async def health_chat(patient_id: str = Form(...), message: str = Form(...)):
+    """Fast non-streaming chat using Llama 70B."""
     if not message.strip():
         raise HTTPException(400, "Message cannot be empty")
-
     patient = _db.get_patient(patient_id)
     if not patient:
         raise HTTPException(404, "Patient not found")
-
-    # Save user message
     _db.save_chat_message(patient_id, "user", message.strip())
-
-    # Build context from patient history
-    context = _agent.memory.load_context(patient_id)
-    context_text = _agent.memory.format_for_ai(context)
-    chat_history = _db.get_chat_history(patient_id, limit=10)
-    chat_ctx = "\n".join([f"{m['role']}: {m['content']}" for m in chat_history[-6:]])
-
-    # Use AkashML for health conversation
+    msgs = _build_chat_msgs(patient, patient_id, message)
     try:
-        resp = _agent.akashml.chat.completions.create(
-            model=_config.akashml.primary_model,
-            messages=[
-                {"role": "system", "content": f"""You are HealthGuard, a private AI health assistant running 24/7 on Akash decentralized cloud.
-You help patients understand their health, track symptoms, and provide evidence-based guidance.
-Always be empathetic but medically accurate. If something sounds serious, recommend seeing a doctor.
-
-IMPORTANT: If the user mentions any vital signs (blood pressure, glucose, temperature, pain level, heart rate, oxygen),
-extract them and include a JSON block at the END of your response like:
-[VITALS]{{"bp_systolic": 130, "bp_diastolic": 85, "glucose": 140, "temperature": 99.2, "pain_level": 5, "heart_rate": 88, "oxygen_saturation": 97}}[/VITALS]
-Only include vitals that were actually mentioned. If no vitals mentioned, do NOT include the block.
-
-Patient name: {patient['name']}
-Patient health context: {context_text[:1000]}
-
-Recent conversation:
-{chat_ctx}"""},
-                {"role": "user", "content": message.strip()},
-            ],
-            max_tokens=800,
-            temperature=0.3,
+        resp = _agent.venice.chat.completions.create(
+            model="grok-41-fast", messages=msgs,
+            max_tokens=300, temperature=0.3,
         )
         ai_response = resp.choices[0].message.content.strip()
-        _agent.stats["akashml_calls"] += 1
+        _agent.stats["venice_calls"] += 1
     except Exception as e:
         logger.error("chat_error", error=str(e))
-        ai_response = "I'm having trouble connecting to my AI backend right now. Please try again in a moment."
-
-    # Extract vitals if AI found any
-    extracted_vitals = {}
-    if "[VITALS]" in ai_response and "[/VITALS]" in ai_response:
-        import json as _json
-        try:
-            vitals_str = ai_response.split("[VITALS]")[1].split("[/VITALS]")[0]
-            extracted_vitals = _json.loads(vitals_str)
-            # Save extracted vitals to DB
-            for metric, value in extracted_vitals.items():
-                if isinstance(value, (int, float)):
-                    _db.record_vital(patient_id, metric, float(value), source="chat_extracted")
-            # Remove the vitals block from the visible response
-            ai_response = ai_response.split("[VITALS]")[0].strip()
-        except Exception:
-            pass
-
-    # Save AI response
+        ai_response = "I'm having trouble connecting right now. Please try again."
+    ai_response, extracted = _extract_vitals(patient_id, ai_response)
     _db.save_chat_message(patient_id, "assistant", ai_response)
-
-    # Also queue as symptom for agent processing
     item = ingestion.ingest_text(message, patient_id)
     _agent.event_queue.push(item)
+    _db.audit({"type": "health_chat", "patient_id": patient_id[:8] + "...", "vitals_extracted": len(extracted)})
+    return JSONResponse({"response": ai_response, "vitals_extracted": extracted})
 
-    _db.audit({"type": "health_chat", "patient_id": patient_id[:8] + "...", "vitals_extracted": len(extracted_vitals)})
 
-    return JSONResponse({
-        "response": ai_response,
-        "vitals_extracted": extracted_vitals,
-    })
+@app.post("/chat-stream")
+async def health_chat_stream(patient_id: str = Form(...), message: str = Form(...)):
+    """Streaming chat — tokens arrive via SSE for instant perceived response."""
+    if not message.strip():
+        raise HTTPException(400, "Message cannot be empty")
+    patient = _db.get_patient(patient_id)
+    if not patient:
+        raise HTTPException(404, "Patient not found")
+    _db.save_chat_message(patient_id, "user", message.strip())
+    msgs = _build_chat_msgs(patient, patient_id, message)
+
+    def generate():
+        full = ""
+        try:
+            stream = _agent.venice.chat.completions.create(
+                model="grok-41-fast", messages=msgs,
+                max_tokens=300, temperature=0.3, stream=True,
+            )
+            for chunk in stream:
+                if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
+                    token = chunk.choices[0].delta.content
+                    full += token
+                    yield f"data: {_json.dumps({'t': token})}\n\n"
+        except Exception as e:
+            logger.error("chat_stream_error", error=str(e))
+            if not full:
+                full = "I'm having trouble connecting right now. Please try again."
+                yield f"data: {_json.dumps({'t': full})}\n\n"
+        # Post-stream: save + extract vitals
+        cleaned, extracted = _extract_vitals(patient_id, full)
+        _db.save_chat_message(patient_id, "assistant", cleaned)
+        _agent.stats["venice_calls"] += 1
+        ingestion.ingest_text(message, patient_id)
+        yield f"data: {_json.dumps({'done': True, 'vitals_extracted': extracted})}\n\n"
+
+    return StreamingResponse(generate(), media_type="text/event-stream")
 
 
 @app.get("/chat-history/{patient_id}")
@@ -520,10 +534,10 @@ async def analyze_photo(
 
     # Step 3: AkashML Clinical Triage — full treatment plan
     triage = inference.akashml_clinical_triage(
-        _agent.akashml, _config.akashml.primary_model,
+        _agent.venice, "grok-41-fast",
         vision_result, patient_context, note,
     )
-    _agent.stats["akashml_calls"] += 1
+    _agent.stats["venice_calls"] += 1
 
     # Step 4: Log (structured text only — no image stored)
     sev_map = {"green_self_care": "normal", "yellow_see_doctor": "monitor", "orange_urgent_care": "alert", "red_emergency": "escalate"}
@@ -643,9 +657,9 @@ def doctor_report(patient_id: str):
     context = _agent.memory.load_context(patient_id, days=14)
     context_text = _agent.memory.format_for_ai(context)
     report = inference.akashml_doctor_report(
-        _agent.akashml, _config.akashml.primary_model, context_text
+        _agent.venice, "grok-41-fast", context_text
     )
-    _agent.stats["akashml_calls"] += 1
+    _agent.stats["venice_calls"] += 1
     _db.audit({"type": "doctor_report_generated", "patient_id": patient_id[:8] + "..."})
     return JSONResponse({"patient": patient, "report": report})
 
@@ -661,10 +675,10 @@ def patient_briefing(patient_id: str):
     context = _agent.memory.load_context(patient_id)
     context_text = _agent.memory.format_for_ai(context)
     briefing = inference.akashml_patient_briefing(
-        _agent.akashml, _config.akashml.primary_model,
+        _agent.venice, "grok-41-fast",
         patient["name"], context_text
     )
-    _agent.stats["akashml_calls"] += 1
+    _agent.stats["venice_calls"] += 1
     # Generate TTS audio from the briefing text
     audio_b64 = None
     spoken = briefing.get("spoken_text", "")

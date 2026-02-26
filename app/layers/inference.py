@@ -42,36 +42,8 @@ def venice_stt(config: AppConfig, audio_bytes: bytes) -> str:
 
 # ── Venice Vision — Image Analysis (Qwen2.5-VL 235B) ────────────────
 
-VISION_SCHEMA_PROMPT = """You are an expert medical image analysis AI with clinical decision support capability.
-Analyze this patient-submitted health image thoroughly. Look carefully at the ACTUAL image content.
-Describe exactly what you see — colors, textures, patterns, size estimates, location on body if visible.
-Return ONLY a JSON object with exactly these fields:
-{
-  "image_type": "wound|burn|rash|bruise|skin_lesion|fracture_swelling|eye|medication|device_screen|other",
-  "observations": "Very detailed clinical observations of what you actually see in the image",
-  "severity": "mild|moderate|severe|critical|unknown",
-  "healing_stage": "early|mid|late|healed|worsening|infected|N/A",
-  "redness": "none|mild|moderate|severe",
-  "swelling": "none|mild|moderate|severe",
-  "discharge": "none|clear|yellow|green|bloody|purulent",
-  "infection_risk": "low|moderate|high",
-  "confidence": 0.0 to 1.0,
-  "primary_concern": "The single most important clinical finding",
-  "differential_assessment": ["possible condition 1", "possible condition 2"],
-  "immediate_actions": ["what patient should do RIGHT NOW"],
-  "medication_suggestions": [
-    {"name": "medication name", "purpose": "why", "dosage_note": "general guidance", "otc": true}
-  ],
-  "precautions": ["precaution 1", "precaution 2"],
-  "requires_doctor": true,
-  "doctor_urgency": "not_needed|within_week|within_24h|within_6h|immediately|call_911",
-  "scans_recommended": ["X-ray|MRI|CT|ultrasound|blood_work|culture_swab|none"],
-  "home_care": ["home care instruction 1", "home care instruction 2"],
-  "warning_signs": ["seek immediate help if you notice..."],
-  "follow_up": "when and how to follow up",
-  "patient_summary": "A simple 2-3 sentence summary in plain language the patient can understand"
-}
-Be thorough and precise. Describe EXACTLY what you see, not generic observations."""
+VISION_SCHEMA_PROMPT = """Medical image analysis AI. Analyze and return ONLY JSON:
+{"image_type":"wound|burn|rash|bruise|skin_lesion|other","observations":"what you see","severity":"mild|moderate|severe|critical","infection_risk":"low|moderate|high","confidence":0.0-1.0,"primary_concern":"main finding","immediate_actions":["action1"],"requires_doctor":true,"doctor_urgency":"not_needed|within_week|within_24h|immediately","patient_summary":"2 sentence plain summary"}"""
 
 
 def venice_vision(config: AppConfig, client: OpenAI, image_bytes: bytes) -> dict:
@@ -101,7 +73,7 @@ def venice_vision(config: AppConfig, client: OpenAI, image_bytes: bytes) -> dict
                     ],
                 },
             ],
-            max_tokens=1500,
+            max_tokens=500,
             temperature=0.1,
         )
         raw = resp.choices[0].message.content.strip()
@@ -123,39 +95,9 @@ def venice_vision(config: AppConfig, client: OpenAI, image_bytes: bytes) -> dict
 
 # ── AkashML — Clinical Triage from Vision Analysis ────────────────────
 
-CLINICAL_TRIAGE_PROMPT = """You are a senior emergency medicine physician and clinical decision support AI.
-Given a vision analysis of a patient's photo combined with their vitals and symptom history, provide a comprehensive clinical triage.
-Return ONLY a JSON object:
-{
-  "emergency_level": "green_self_care|yellow_see_doctor|orange_urgent_care|red_emergency",
-  "emergency_explanation": "why this emergency level",
-  "diagnosis_assessment": {
-    "most_likely": "most probable diagnosis",
-    "differential": ["diagnosis 1", "diagnosis 2"],
-    "confidence": 0.0 to 1.0
-  },
-  "treatment_plan": [
-    {"step": 1, "action": "what to do", "detail": "how to do it", "timeframe": "when"}
-  ],
-  "medications": [
-    {"name": "drug name", "type": "OTC|prescription", "dosage": "recommended dosage", "duration": "how long", "warnings": "important warnings"}
-  ],
-  "do_not_do": ["things the patient should NOT do"],
-  "scans_and_tests": [
-    {"test": "test name", "reason": "why needed", "urgency": "routine|soon|urgent"}
-  ],
-  "specialist_referral": {"needed": true, "specialty": "which doctor", "timeframe": "when"},
-  "doctor_notification": {
-    "notify_now": true,
-    "reason": "why the doctor needs to be notified",
-    "key_findings": "what to tell the doctor"
-  },
-  "home_care_plan": ["detailed home care step 1", "step 2"],
-  "red_flags": ["go to ER immediately if you see..."],
-  "next_check": "when patient should re-assess or upload another photo",
-  "patient_message": "A warm, clear 3-4 sentence message to the patient explaining their situation and what to do next"
-}
-Be specific and actionable. If mild, reassure and suggest OTC remedies. If serious, be direct about urgency."""
+CLINICAL_TRIAGE_PROMPT = """Emergency triage AI. Return ONLY JSON:
+{"emergency_level":"green_self_care|yellow_see_doctor|orange_urgent_care|red_emergency","emergency_explanation":"why","diagnosis_assessment":{"most_likely":"diagnosis","confidence":0.0-1.0},"treatment_plan":[{"action":"what to do","timeframe":"when"}],"medications":[{"name":"drug","type":"OTC|prescription","dosage":"dose"}],"doctor_notification":{"notify_now":true,"reason":"why","key_findings":"findings"},"patient_message":"2-3 sentence message to patient"}
+Be specific. Reassure if mild, be direct if serious."""
 
 
 def akashml_clinical_triage(client: OpenAI, model: str, vision_result: dict, patient_context: str = "", patient_note: str = "") -> dict:
@@ -174,7 +116,7 @@ def akashml_clinical_triage(client: OpenAI, model: str, vision_result: dict, pat
                 {"role": "system", "content": CLINICAL_TRIAGE_PROMPT},
                 {"role": "user", "content": content},
             ],
-            max_tokens=1500,
+            max_tokens=500,
             temperature=0.2,
         )
         raw = resp.choices[0].message.content.strip()
@@ -275,18 +217,8 @@ def venice_imggen(config: AppConfig, summary_text: str) -> bytes | None:
 
 # ── AkashML — Structure STT into SOAP Note ───────────────────────────
 
-SOAP_PROMPT = """You are a clinical documentation AI. Convert the patient's spoken words into a structured SOAP note.
-Return ONLY a JSON object:
-{
-  "subjective": "what the patient reported",
-  "objective": "any measurable observations mentioned",
-  "assessment": "clinical assessment based on reported symptoms",
-  "plan": "recommended next steps",
-  "key_symptoms": ["symptom1", "symptom2"],
-  "pain_level": 0-10 or null,
-  "medication_mentioned": ["med1", "med2"] or [],
-  "urgency": "routine|soon|urgent|emergency"
-}"""
+SOAP_PROMPT = """Convert to SOAP note. Return ONLY JSON:
+{"subjective":"reported","objective":"observations","assessment":"assessment","plan":"next steps","key_symptoms":["s1"],"urgency":"routine|soon|urgent|emergency"}"""
 
 
 def akashml_soap_note(client: OpenAI, model: str, transcript: str, vitals_context: str = "") -> dict:
@@ -303,7 +235,7 @@ def akashml_soap_note(client: OpenAI, model: str, transcript: str, vitals_contex
                 {"role": "system", "content": SOAP_PROMPT},
                 {"role": "user", "content": content},
             ],
-            max_tokens=800,
+            max_tokens=300,
             temperature=0.1,
         )
         raw = resp.choices[0].message.content.strip()
@@ -324,18 +256,9 @@ def akashml_soap_note(client: OpenAI, model: str, transcript: str, vitals_contex
 
 # ── AkashML — Analyze Vision Output Against History ──────────────────
 
-ANALYZE_PROMPT = """You are a clinical decision support AI. Analyze the combined inputs and return a JSON decision.
-Inputs: current image analysis + vitals history + recent logs.
-Return ONLY JSON:
-{
-  "decision": "normal|monitor|alert|escalate",
-  "anomaly_score": 0.0 to 1.0,
-  "reason": "clear explanation",
-  "urgency": "none|within_week|within_24_hours|immediate",
-  "combined_signal": true/false (whether multiple inputs together are concerning),
-  "recommended_actions": ["action1", "action2"]
-}
-Score > 0.7 = escalate. Score > 0.4 = alert. Otherwise = monitor or normal."""
+ANALYZE_PROMPT = """Clinical decision AI. Return ONLY JSON:
+{"decision":"normal|monitor|alert|escalate","anomaly_score":0.0-1.0,"reason":"explanation","urgency":"none|within_week|within_24_hours|immediate","recommended_actions":["action1"]}
+Score>0.7=escalate, >0.4=alert."""
 
 
 def akashml_analyze(client: OpenAI, model: str, vision_result: dict, vitals_summary: str, recent_logs: str = "") -> dict:
@@ -352,7 +275,7 @@ def akashml_analyze(client: OpenAI, model: str, vision_result: dict, vitals_summ
                 {"role": "system", "content": ANALYZE_PROMPT},
                 {"role": "user", "content": content},
             ],
-            max_tokens=600,
+            max_tokens=300,
             temperature=0.1,
         )
         raw = resp.choices[0].message.content.strip()
@@ -373,16 +296,8 @@ def akashml_analyze(client: OpenAI, model: str, vision_result: dict, vitals_summ
 
 # ── AkashML — Autonomous Loop Decision ───────────────────────────────
 
-LOOP_DECISION_PROMPT = """You are an autonomous health monitoring agent. Every 60 seconds you review a patient's current state.
-Given the current context (vitals, recent logs, alerts), decide the agent's next action.
-Return ONLY JSON:
-{
-  "action": "idle|check_in|alert_patient|alert_doctor|generate_report|request_input",
-  "reason": "why this action",
-  "message": "what to tell the patient (if applicable)",
-  "severity": 1-3 (1=critical, 2=warning, 3=info),
-  "confidence": 0.0 to 1.0
-}"""
+LOOP_DECISION_PROMPT = """Health monitoring agent. Return ONLY JSON:
+{"action":"idle|alert_patient|alert_doctor","reason":"why","severity":1-3,"confidence":0.0-1.0}"""
 
 
 def akashml_loop_decision(client: OpenAI, model: str, context: str) -> dict:
@@ -394,7 +309,7 @@ def akashml_loop_decision(client: OpenAI, model: str, context: str) -> dict:
                 {"role": "system", "content": LOOP_DECISION_PROMPT},
                 {"role": "user", "content": context},
             ],
-            max_tokens=400,
+            max_tokens=150,
             temperature=0.1,
         )
         raw = resp.choices[0].message.content.strip()
@@ -412,34 +327,9 @@ def akashml_loop_decision(client: OpenAI, model: str, context: str) -> dict:
 
 # ── AkashML — Weekly Summary ─────────────────────────────────────────
 
-DOCTOR_REPORT_PROMPT = """You are a senior clinical decision support AI. Generate a comprehensive doctor's report.
-Given the patient's vitals history, symptoms, alerts, and analysis logs, produce a detailed clinical report.
-Return ONLY a JSON object:
-{
-  "risk_assessment": {
-    "overall_risk": "low|moderate|high|critical",
-    "risk_factors": ["factor1", "factor2"],
-    "risk_score": 0.0 to 1.0
-  },
-  "treatment_recommendations": [
-    {"priority": 1, "recommendation": "text", "rationale": "why", "urgency": "immediate|24h|this_week|routine"}
-  ],
-  "medication_review": {
-    "current_concerns": ["concern1"],
-    "interactions_flagged": ["interaction1"],
-    "dosage_notes": "any dosage observations"
-  },
-  "follow_up_plan": {
-    "next_visit": "timeframe",
-    "monitoring_frequency": "how often to check vitals",
-    "tests_recommended": ["test1", "test2"],
-    "specialist_referral": "if needed, which specialty"
-  },
-  "patient_education": ["key point for patient to understand"],
-  "clinical_summary": "2-3 sentence executive summary for the doctor",
-  "differential_diagnosis": ["possible diagnosis 1", "possible diagnosis 2"]
-}
-Be evidence-based. Flag any dangerous patterns. Prioritize patient safety."""
+DOCTOR_REPORT_PROMPT = """Generate doctor report. Return ONLY JSON:
+{"risk_assessment":{"overall_risk":"low|moderate|high|critical","risk_factors":["f1"],"risk_score":0.0-1.0},"treatment_recommendations":[{"recommendation":"text","urgency":"immediate|24h|this_week|routine"}],"follow_up_plan":{"next_visit":"when","tests_recommended":["test1"]},"clinical_summary":"2-3 sentence summary"}
+Be evidence-based. Flag dangerous patterns."""
 
 
 def akashml_doctor_report(client: OpenAI, model: str, patient_context: str) -> dict:
@@ -453,7 +343,7 @@ def akashml_doctor_report(client: OpenAI, model: str, patient_context: str) -> d
                 {"role": "system", "content": DOCTOR_REPORT_PROMPT},
                 {"role": "user", "content": patient_context},
             ],
-            max_tokens=1200,
+            max_tokens=500,
             temperature=0.2,
         )
         raw = resp.choices[0].message.content.strip()
@@ -472,16 +362,8 @@ def akashml_doctor_report(client: OpenAI, model: str, patient_context: str) -> d
         return {"clinical_summary": "Report generation failed", "error": str(e)}
 
 
-PATIENT_BRIEFING_PROMPT = """You are a friendly, empathetic health assistant speaking directly to the patient.
-Generate a warm, clear spoken health briefing based on their current vitals and recent history.
-Keep it under 200 words. Use simple language, no medical jargon. Be encouraging but honest about concerns.
-Start with a greeting using their name. Mention specific numbers. End with one actionable tip.
-Return ONLY a JSON object:
-{
-  "spoken_text": "the full text to be spoken aloud",
-  "mood": "reassuring|cautious|urgent",
-  "key_message": "one sentence takeaway"
-}"""
+PATIENT_BRIEFING_PROMPT = """Friendly health briefing for patient. Under 100 words, simple language. Return ONLY JSON:
+{"spoken_text":"greeting + vitals summary + one tip","mood":"reassuring|cautious|urgent","key_message":"one sentence"}"""
 
 
 def akashml_patient_briefing(client: OpenAI, model: str, patient_name: str, context: str) -> dict:
@@ -493,7 +375,7 @@ def akashml_patient_briefing(client: OpenAI, model: str, patient_name: str, cont
                 {"role": "system", "content": PATIENT_BRIEFING_PROMPT},
                 {"role": "user", "content": f"Patient name: {patient_name}\n\n{context}"},
             ],
-            max_tokens=400,
+            max_tokens=200,
             temperature=0.4,
         )
         raw = resp.choices[0].message.content.strip()
@@ -509,17 +391,8 @@ def akashml_patient_briefing(client: OpenAI, model: str, patient_name: str, cont
         return {"spoken_text": f"Hello {patient_name}, we're monitoring your health. Please check in with your doctor soon.", "mood": "cautious"}
 
 
-WEEKLY_PROMPT = """You are a health reporting AI. Generate a weekly health summary from the patient's data.
-Return ONLY JSON:
-{
-  "period": "date range",
-  "overall_status": "stable|improving|declining|concerning",
-  "key_findings": ["finding1", "finding2"],
-  "vitals_trends": "summary of vital sign trends",
-  "alerts_summary": "summary of alerts this week",
-  "recommendations": ["rec1", "rec2"],
-  "doctor_notes": "anything the doctor should know"
-}"""
+WEEKLY_PROMPT = """Weekly health summary. Return ONLY JSON:
+{"overall_status":"stable|improving|declining|concerning","key_findings":["f1"],"vitals_trends":"trends","recommendations":["r1"]}"""
 
 
 def akashml_weekly_summary(client: OpenAI, model: str, week_data: str) -> dict:
@@ -531,7 +404,7 @@ def akashml_weekly_summary(client: OpenAI, model: str, week_data: str) -> dict:
                 {"role": "system", "content": WEEKLY_PROMPT},
                 {"role": "user", "content": week_data},
             ],
-            max_tokens=800,
+            max_tokens=300,
             temperature=0.2,
         )
         raw = resp.choices[0].message.content.strip()

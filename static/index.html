@@ -864,6 +864,16 @@ $('chatInput').addEventListener('keydown', function(e) {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }
 });
 
+function createStreamBubble() {
+    var welcome = $('chatWelcome');
+    if (welcome) welcome.style.display = 'none';
+    var div = document.createElement('div');
+    div.className = 'chat-msg assistant';
+    div.innerHTML = '<span class="stream-content"></span><div class="time">' + new Date().toTimeString().substring(0,8) + '</div>';
+    $('chatMessages').appendChild(div);
+    return div.querySelector('.stream-content');
+}
+
 async function sendChat() {
     var msg = $('chatInput').value.trim();
     if (!msg && !chatPendingPhoto) return;
@@ -887,7 +897,6 @@ async function sendChat() {
             if (d.triage) response += '\n\nClinical Assessment:\n' + (d.triage.emergency_explanation || '') + '\nEmergency Level: ' + (d.triage.emergency_level || 'unknown');
             if (d.triage && d.triage.recommended_medications) response += '\nMedications: ' + JSON.stringify(d.triage.recommended_medications);
             appendChatBubble('assistant', response || 'Analysis complete.');
-            _db_save_chat(response);
         } catch(e) {
             appendChatBubble('assistant', 'Sorry, photo analysis failed: ' + e.message);
         }
@@ -898,29 +907,53 @@ async function sendChat() {
         return;
     }
 
-    // Text chat
+    // Text chat — streaming
     appendChatBubble('user', msg);
     $('chatInput').value = '';
     scrollChat();
-    $('typingIndicator').classList.add('show');
     $('chatSendBtn').disabled = true;
+    var streamEl = createStreamBubble();
+    var fullText = '';
+    scrollChat();
 
     try {
         var fd = new FormData();
         fd.append('patient_id', currentPatientId);
         fd.append('message', msg);
-        var r = await fetch('/chat', { method: 'POST', body: fd });
-        var d = await r.json();
-        var responseHtml = d.response || 'I could not generate a response.';
-        if (d.vitals_extracted && Object.keys(d.vitals_extracted).length > 0) {
-            responseHtml += '\n\n[Vitals auto-saved: ' + Object.entries(d.vitals_extracted).map(function(e) { return e[0] + '=' + e[1]; }).join(', ') + ']';
-            refreshVitals();
+        var r = await fetch('/chat-stream', { method: 'POST', body: fd });
+        var reader = r.body.getReader();
+        var decoder = new TextDecoder();
+        var buf = '';
+        while (true) {
+            var chunk = await reader.read();
+            if (chunk.done) break;
+            buf += decoder.decode(chunk.value, { stream: true });
+            var lines = buf.split('\n');
+            buf = lines.pop();
+            for (var i = 0; i < lines.length; i++) {
+                var line = lines[i].trim();
+                if (!line.startsWith('data: ')) continue;
+                try {
+                    var ev = JSON.parse(line.substring(6));
+                    if (ev.t) {
+                        fullText += ev.t;
+                        streamEl.innerHTML = fullText.replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+                        scrollChat();
+                    }
+                    if (ev.done && ev.vitals_extracted && Object.keys(ev.vitals_extracted).length > 0) {
+                        fullText += '\n\n[Vitals auto-saved: ' + Object.entries(ev.vitals_extracted).map(function(e){return e[0]+'='+e[1];}).join(', ') + ']';
+                        streamEl.innerHTML = fullText.replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+                        refreshVitals();
+                    }
+                } catch(pe) {}
+            }
         }
-        appendChatBubble('assistant', responseHtml);
+        if (!fullText) {
+            streamEl.innerHTML = 'No response received. Please try again.';
+        }
     } catch(e) {
-        appendChatBubble('assistant', 'Sorry, something went wrong: ' + e.message);
+        streamEl.innerHTML = 'Connection error. Please try again.';
     }
-    $('typingIndicator').classList.remove('show');
     $('chatSendBtn').disabled = false;
     scrollChat();
 }

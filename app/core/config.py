@@ -26,7 +26,8 @@ class VeniceConfig(BaseModel):
 class AkashMLConfig(BaseModel):
     api_key: str = os.getenv("AKASHML_API_KEY", "")
     base_url: str = os.getenv("AKASHML_BASE_URL", "https://api.akashml.com/v1")
-    primary_model: str = os.getenv("AKASHML_PRIMARY_MODEL", "deepseek-ai/DeepSeek-V3.1")
+    primary_model: str = os.getenv("AKASHML_PRIMARY_MODEL", "Meta-Llama-3-3-70B-Instruct")
+    heavy_model: str = os.getenv("AKASHML_HEAVY_MODEL", "deepseek-ai/DeepSeek-V3.1")
     fallback_model: str = os.getenv("AKASHML_FALLBACK_MODEL", "Meta-Llama-3-3-70B-Instruct")
 
 
