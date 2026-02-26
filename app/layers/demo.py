@@ -91,8 +91,8 @@ def load_demo_data(agent: HealthGuardAgent):
     logger.info("demo_loading_started", patients=len(DEMO_PATIENTS))
 
     for p in DEMO_PATIENTS:
-        agent.db.create_patient(p["name"], patient_id=p["id"])
-        logger.info("demo_patient_created", id=p["id"], name=p["name"])
+        pid, access_key = agent.db.create_patient(p["name"], patient_id=p["id"])
+        logger.info("demo_patient_created", id=p["id"], name=p["name"], access_key=access_key)
 
     for patient_id, vitals in DEMO_VITALS.items():
         for v in vitals:

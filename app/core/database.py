@@ -69,7 +69,8 @@ class Database:
                     id TEXT PRIMARY KEY,
                     name_encrypted TEXT NOT NULL,
                     created_at TEXT NOT NULL,
-                    key_hash TEXT NOT NULL
+                    key_hash TEXT NOT NULL,
+                    access_key TEXT UNIQUE
                 );
                 CREATE TABLE IF NOT EXISTS vitals (
                     id TEXT PRIMARY KEY,
@@ -110,19 +111,60 @@ class Database:
                 CREATE INDEX IF NOT EXISTS idx_vitals_patient ON vitals(patient_id, timestamp);
                 CREATE INDEX IF NOT EXISTS idx_logs_patient ON logs(patient_id, timestamp);
                 CREATE INDEX IF NOT EXISTS idx_alerts_patient ON alerts(patient_id, timestamp);
+                CREATE TABLE IF NOT EXISTS chat_messages (
+                    id TEXT PRIMARY KEY,
+                    patient_id TEXT NOT NULL,
+                    role TEXT NOT NULL,
+                    content_encrypted TEXT NOT NULL,
+                    timestamp TEXT NOT NULL,
+                    FOREIGN KEY (patient_id) REFERENCES patients(id)
+                );
+                CREATE INDEX IF NOT EXISTS idx_chat_patient ON chat_messages(patient_id, timestamp);
             """)
+        # Migrate: add access_key column if missing
+        try:
+            with self._conn() as conn:
+                conn.execute("ALTER TABLE patients ADD COLUMN access_key TEXT UNIQUE")
+        except Exception:
+            pass
 
     # ── Patients ──────────────────────────────────────────────────────
-    def create_patient(self, name: str, patient_id: str = None) -> str:
+    def _generate_access_key(self) -> str:
+        """Generate a unique 6-char alphanumeric access key."""
+        import random, string
+        for _ in range(100):
+            key = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+            with self._conn() as conn:
+                existing = conn.execute("SELECT id FROM patients WHERE access_key = ?", (key,)).fetchone()
+            if not existing:
+                return key
+        return str(uuid.uuid4())[:8].upper()
+
+    def create_patient(self, name: str, patient_id: str = None) -> tuple:
+        """Create patient and return (patient_id, access_key)."""
         pid = patient_id or str(uuid.uuid4())
         name_enc = self.encryption.encrypt(name)
         key_hash = hashlib.sha256(pid.encode()).hexdigest()[:16]
+        access_key = self._generate_access_key()
         with self._conn() as conn:
             conn.execute(
-                "INSERT OR IGNORE INTO patients (id, name_encrypted, created_at, key_hash) VALUES (?, ?, ?, ?)",
-                (pid, name_enc, datetime.utcnow().isoformat(), key_hash),
+                "INSERT OR IGNORE INTO patients (id, name_encrypted, created_at, key_hash, access_key) VALUES (?, ?, ?, ?, ?)",
+                (pid, name_enc, datetime.utcnow().isoformat(), key_hash, access_key),
             )
-        return pid
+        return pid, access_key
+
+    def login_patient(self, access_key: str) -> dict | None:
+        """Login with access key. Returns patient dict or None."""
+        with self._conn() as conn:
+            row = conn.execute("SELECT * FROM patients WHERE access_key = ?", (access_key.strip().upper(),)).fetchone()
+        if not row:
+            return None
+        return {
+            "id": row["id"],
+            "name": self.encryption.decrypt(row["name_encrypted"]),
+            "created_at": row["created_at"],
+            "access_key": row["access_key"],
+        }
 
     def get_patient(self, patient_id: str) -> dict | None:
         with self._conn() as conn:
@@ -253,6 +295,40 @@ class Database:
         return entries
 
     # ── Stats ─────────────────────────────────────────────────────────
+    # ── Chat Messages ─────────────────────────────────────────────────
+    def save_chat_message(self, patient_id: str, role: str, content: str) -> str:
+        mid = str(uuid.uuid4())
+        content_enc = self.encryption.encrypt(content)
+        with self._conn() as conn:
+            conn.execute(
+                "INSERT INTO chat_messages (id, patient_id, role, content_encrypted, timestamp) VALUES (?, ?, ?, ?, ?)",
+                (mid, patient_id, role, content_enc, datetime.utcnow().isoformat()),
+            )
+        return mid
+
+    def get_chat_history(self, patient_id: str, limit: int = 50) -> list[dict]:
+        with self._conn() as conn:
+            rows = conn.execute(
+                "SELECT * FROM chat_messages WHERE patient_id = ? ORDER BY timestamp DESC LIMIT ?",
+                (patient_id, limit),
+            ).fetchall()
+        results = []
+        for r in rows:
+            d = dict(r)
+            try:
+                d["content"] = self.encryption.decrypt(d["content_encrypted"])
+            except Exception:
+                d["content"] = "[decryption failed]"
+            del d["content_encrypted"]
+            results.append(d)
+        results.reverse()
+        return results
+
+    def clear_chat(self, patient_id: str) -> int:
+        with self._conn() as conn:
+            count = conn.execute("DELETE FROM chat_messages WHERE patient_id = ?", (patient_id,)).rowcount
+        return count
+
     def get_stats(self) -> dict:
         with self._conn() as conn:
             patients = conn.execute("SELECT COUNT(*) as c FROM patients").fetchone()["c"]

@@ -59,14 +59,14 @@ async def startup():
     logger.info("gateway_started", port=_config.port, demo=_config.demo_mode)
 
 
-# ── Patient Registration ──────────────────────────────────────────────
+# ── Patient Registration & Login ──────────────────────────────────────
 
 @app.post("/register-patient")
 async def register_patient(name: str = Form(...)):
-    """Register a new patient. Name is encrypted with AES-256-GCM before storage."""
+    """Register a new patient. Returns a unique 6-char access key for login."""
     if not name.strip():
         raise HTTPException(400, "Name cannot be empty")
-    patient_id = _db.create_patient(name.strip())
+    patient_id, access_key = _db.create_patient(name.strip())
     _db.audit({
         "type": "patient_registered",
         "patient_id": patient_id[:8] + "...",
@@ -77,9 +77,125 @@ async def register_patient(name: str = Form(...)):
     return JSONResponse({
         "status": "registered",
         "patient_id": patient_id,
+        "access_key": access_key,
         "name": name.strip(),
-        "privacy": "Your name is encrypted with AES-256-GCM. Even a database breach cannot reveal it.",
+        "message": "Save your access key! You need it to log back in. Your name is encrypted with AES-256-GCM.",
     })
+
+
+@app.post("/login")
+async def login(access_key: str = Form(...)):
+    """Login with unique access key. No passwords, no emails — just your key."""
+    patient = _db.login_patient(access_key.strip())
+    if not patient:
+        raise HTTPException(401, "Invalid access key")
+    _db.audit({"type": "patient_login", "patient_id": patient["id"][:8] + "..."})
+    return JSONResponse({
+        "status": "authenticated",
+        "patient_id": patient["id"],
+        "name": patient["name"],
+        "access_key": patient["access_key"],
+    })
+
+
+# ── Health Chat — AI Conversation ─────────────────────────────────────
+
+@app.post("/chat")
+async def health_chat(
+    patient_id: str = Form(...),
+    message: str = Form(...),
+):
+    """ChatGPT-style health conversation. AI responds with health advice,
+    extracts vitals if mentioned, and stores the health insights."""
+    if not message.strip():
+        raise HTTPException(400, "Message cannot be empty")
+
+    patient = _db.get_patient(patient_id)
+    if not patient:
+        raise HTTPException(404, "Patient not found")
+
+    # Save user message
+    _db.save_chat_message(patient_id, "user", message.strip())
+
+    # Build context from patient history
+    context = _agent.memory.load_context(patient_id)
+    context_text = _agent.memory.format_for_ai(context)
+    chat_history = _db.get_chat_history(patient_id, limit=10)
+    chat_ctx = "\n".join([f"{m['role']}: {m['content']}" for m in chat_history[-6:]])
+
+    # Use AkashML for health conversation
+    try:
+        resp = _agent.akashml.chat.completions.create(
+            model=_config.akashml.primary_model,
+            messages=[
+                {"role": "system", "content": f"""You are HealthGuard, a private AI health assistant running 24/7 on Akash decentralized cloud.
+You help patients understand their health, track symptoms, and provide evidence-based guidance.
+Always be empathetic but medically accurate. If something sounds serious, recommend seeing a doctor.
+
+IMPORTANT: If the user mentions any vital signs (blood pressure, glucose, temperature, pain level, heart rate, oxygen),
+extract them and include a JSON block at the END of your response like:
+[VITALS]{{"bp_systolic": 130, "bp_diastolic": 85, "glucose": 140, "temperature": 99.2, "pain_level": 5, "heart_rate": 88, "oxygen_saturation": 97}}[/VITALS]
+Only include vitals that were actually mentioned. If no vitals mentioned, do NOT include the block.
+
+Patient name: {patient['name']}
+Patient health context: {context_text[:1000]}
+
+Recent conversation:
+{chat_ctx}"""},
+                {"role": "user", "content": message.strip()},
+            ],
+            max_tokens=800,
+            temperature=0.3,
+        )
+        ai_response = resp.choices[0].message.content.strip()
+        _agent.stats["akashml_calls"] += 1
+    except Exception as e:
+        logger.error("chat_error", error=str(e))
+        ai_response = "I'm having trouble connecting to my AI backend right now. Please try again in a moment."
+
+    # Extract vitals if AI found any
+    extracted_vitals = {}
+    if "[VITALS]" in ai_response and "[/VITALS]" in ai_response:
+        import json as _json
+        try:
+            vitals_str = ai_response.split("[VITALS]")[1].split("[/VITALS]")[0]
+            extracted_vitals = _json.loads(vitals_str)
+            # Save extracted vitals to DB
+            for metric, value in extracted_vitals.items():
+                if isinstance(value, (int, float)):
+                    _db.record_vital(patient_id, metric, float(value), source="chat_extracted")
+            # Remove the vitals block from the visible response
+            ai_response = ai_response.split("[VITALS]")[0].strip()
+        except Exception:
+            pass
+
+    # Save AI response
+    _db.save_chat_message(patient_id, "assistant", ai_response)
+
+    # Also queue as symptom for agent processing
+    item = ingestion.ingest_text(message, patient_id)
+    _agent.event_queue.push(item)
+
+    _db.audit({"type": "health_chat", "patient_id": patient_id[:8] + "...", "vitals_extracted": len(extracted_vitals)})
+
+    return JSONResponse({
+        "response": ai_response,
+        "vitals_extracted": extracted_vitals,
+    })
+
+
+@app.get("/chat-history/{patient_id}")
+def get_chat_history(patient_id: str, limit: int = 50):
+    """Get encrypted chat history for a patient."""
+    return JSONResponse(_db.get_chat_history(patient_id, limit=limit))
+
+
+@app.post("/clear-chat/{patient_id}")
+def clear_chat(patient_id: str):
+    """Clear chat history on logout. Chat is session-based."""
+    count = _db.clear_chat(patient_id)
+    _db.audit({"type": "chat_cleared", "patient_id": patient_id[:8] + "...", "messages_deleted": count})
+    return JSONResponse({"status": "cleared", "messages_deleted": count})
 
 
 # ── Upload Endpoints ──────────────────────────────────────────────────

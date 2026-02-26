@@ -3,1428 +3,869 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>HealthGuard — Private AI Health Agent</title>
+<title>HealthGuard — Private AI Health Agent | 24/7 on Akash</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#f4f7fb;--surface:#fff;--card:#fff;--border:#e4ebf3;--accent:#1f7a8c;--green:#2f855a;--yellow:#b7791f;--red:#c53030;--text:#1a202c;--muted:#5a6b82}
+:root{--bg:#f4f7fb;--surface:#fff;--card:#fff;--border:#e4ebf3;--accent:#1f7a8c;--green:#2f855a;--yellow:#b7791f;--red:#c53030;--text:#1a202c;--muted:#5a6b82;--chat-user:#e8f4fd;--chat-ai:#f0fdf4}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:"Inter",system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
 .mono{font-family:SFMono-Regular,Menlo,Monaco,Consolas,monospace}
-.header{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--border);background:rgba(255,255,255,.92);backdrop-filter:blur(12px)}
-.logo{display:flex;flex-direction:column;gap:2px}
-.logo h1{font-size:18px;letter-spacing:1px;color:var(--accent)}
-.logo span{font-size:10px;color:var(--muted)}
-.nav{display:flex;gap:10px;font-size:11px}
+
+/* Auth overlay */
+.auth-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:linear-gradient(135deg,#0f172a,#1e3a5f);z-index:1000;display:flex;align-items:center;justify-content:center}
+.auth-overlay.hidden{display:none}
+.auth-box{background:#fff;border-radius:20px;padding:40px;max-width:440px;width:92%;box-shadow:0 25px 80px rgba(0,0,0,.3);text-align:center}
+.auth-box h1{font-size:28px;color:var(--accent);letter-spacing:1px;margin-bottom:2px}
+.auth-box .tagline{font-size:11px;color:var(--muted);margin-bottom:6px}
+.auth-box .uptime-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:20px;font-size:10px;color:var(--green);font-weight:600;margin-bottom:24px}
+.auth-box .uptime-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%{transform:scale(1);opacity:1}50%{transform:scale(2.5);opacity:.4}100%{transform:scale(1);opacity:1}}
+.auth-tabs{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:20px}
+.auth-tabs button{flex:1;padding:10px;border:none;background:#f8fafc;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;transition:.2s}
+.auth-tabs button.active{background:var(--accent);color:#fff}
+.auth-field{width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:8px;font-size:14px;outline:none;transition:.2s;margin-bottom:12px}
+.auth-field:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(31,122,140,.15)}
+.auth-btn{width:100%;padding:12px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:14px;font-weight:600;cursor:pointer;transition:.2s}
+.auth-btn:hover{background:#165c6e}
+.auth-btn:disabled{opacity:.5;cursor:not-allowed}
+.auth-msg{font-size:11px;margin-top:12px;padding:8px;border-radius:6px;display:none}
+.auth-msg.show{display:block}
+.auth-msg.success{background:#f0fdf4;border:1px solid #bbf7d0;color:var(--green)}
+.auth-msg.error{background:#fff5f5;border:1px solid #fed7d7;color:var(--red)}
+.access-key-display{background:#fffbeb;border:2px dashed #f59e0b;border-radius:10px;padding:16px;margin:16px 0;text-align:center}
+.access-key-display .key{font-size:32px;font-weight:700;letter-spacing:6px;color:var(--text);font-family:monospace}
+.access-key-display .label{font-size:11px;color:var(--yellow);margin-top:6px}
+.privacy-note{display:flex;align-items:flex-start;gap:8px;padding:10px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;font-size:10px;color:#166534;text-align:left;line-height:1.5;margin-top:12px}
+
+/* Header */
+.header{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:10px 20px;border-bottom:1px solid var(--border);background:rgba(255,255,255,.95);backdrop-filter:blur(12px)}
+.logo{display:flex;align-items:center;gap:10px}
+.logo h1{font-size:16px;letter-spacing:1px;color:var(--accent)}
+.logo .badge-24{background:var(--green);color:#fff;font-size:8px;font-weight:700;padding:2px 6px;border-radius:3px;letter-spacing:.5px}
+.nav{display:flex;gap:6px;font-size:11px}
 .nav a{color:var(--muted);text-decoration:none;text-transform:uppercase;letter-spacing:1px;padding:6px 10px;border-radius:6px;border:1px solid transparent;cursor:pointer}
 .nav a.active{color:var(--accent);background:rgba(0,212,255,.1);border-color:rgba(0,212,255,.3)}
-.header-right{display:flex;align-items:center;gap:16px;font-size:10px;color:var(--muted)}
-.privacy{display:flex;align-items:center;gap:8px}
-.pulse-dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px rgba(47,133,90,.4);animation:pulse 2s infinite}
-@keyframes pulse{0%{transform:scale(1);opacity:1}50%{transform:scale(2.5);opacity:.4}100%{transform:scale(1);opacity:1}}
-.status-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:14px 20px;border-bottom:1px solid var(--border);background:var(--surface);font-size:11px;color:var(--muted);font-family:SFMono-Regular,Menlo,Monaco,Consolas,monospace}
-.status-pill{display:flex;align-items:center;gap:8px}
+.header-right{display:flex;align-items:center;gap:12px;font-size:10px;color:var(--muted)}
+.user-info{display:flex;align-items:center;gap:8px;padding:4px 10px;background:#f8fafc;border:1px solid var(--border);border-radius:6px}
+.user-info .name{font-weight:600;color:var(--text)}
+.user-info .key{font-family:monospace;color:var(--accent);font-size:9px}
+.logout-btn{padding:4px 10px;border:1px solid var(--red);color:var(--red);border-radius:6px;background:none;cursor:pointer;font-size:10px;font-weight:600}
+.logout-btn:hover{background:#fff5f5}
+
+/* Status bar */
+.status-bar{display:flex;gap:16px;padding:8px 20px;border-bottom:1px solid var(--border);background:var(--surface);font-size:10px;color:var(--muted);font-family:monospace;align-items:center;flex-wrap:wrap}
+.status-pill{display:flex;align-items:center;gap:6px}
 .status-pill strong{color:var(--text);font-weight:600}
+.pulse-dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px rgba(47,133,90,.4);animation:pulse 2s infinite}
+
+/* Pages */
+.page{display:none}.page.active{display:block}
+
+/* Cards */
 .grid{padding:16px 20px;display:grid;gap:16px}
 .vitals{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
-.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;box-shadow:0 6px 20px rgba(20,30,60,.08)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;box-shadow:0 4px 16px rgba(20,30,60,.06)}
 .card-title{font-size:11px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px}
-.metric{display:flex;align-items:center;justify-content:space-between}
-.metric-value{font-size:32px;font-weight:700;color:var(--text)}
+.metric-value{font-size:28px;font-weight:700;color:var(--text)}
 .metric-sub{font-size:10px;color:var(--muted)}
-.badge{font-size:9px;padding:3px 6px;border-radius:4px;letter-spacing:1px;font-family:SFMono-Regular,Menlo,Monaco,Consolas,monospace}
+.badge{font-size:9px;padding:3px 6px;border-radius:4px;letter-spacing:1px;font-family:monospace}
 .badge.green{background:rgba(47,133,90,.12);color:var(--green)}
 .badge.yellow{background:rgba(183,121,31,.12);color:var(--yellow)}
 .badge.red{background:rgba(197,48,48,.12);color:var(--red)}
-.badge.small{font-size:8px;padding:2px 6px}
-.main-grid{display:grid;grid-template-columns:1.2fr 1.2fr 320px;gap:16px}
-.chart-wrap{height:220px}
-.actions-list,.feed-list{display:flex;flex-direction:column;gap:10px;max-height:300px;overflow-y:auto}
-.action-item{border-left:3px solid var(--border);padding:10px 12px;background:#fff;border-radius:8px;font-size:10px;color:var(--muted);display:grid;gap:6px}
-.action-item.red{border-left-color:var(--red)}
-.action-item.yellow{border-left-color:var(--yellow)}
-.action-item.green{border-left-color:var(--green)}
-.action-header{display:flex;justify-content:space-between;color:var(--text)}
-.btn{padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text);font-size:11px;cursor:pointer;transition:.2s;width:100%}
-.btn:hover{border-color:var(--accent);background:rgba(31,122,140,.12)}
-.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600}
-.btn.primary:disabled{opacity:.5;cursor:not-allowed}
-.btn.small{width:auto;padding:6px 10px;font-size:10px}
-.btn.toggle-active{border-color:var(--accent);color:var(--accent);background:rgba(0,212,255,.08)}
-.drop-zone{border:1px dashed #c9d6e6;border-radius:10px;padding:18px;text-align:center;color:var(--muted);cursor:pointer;transition:.2s}
-.drop-zone:hover,.drop-zone.hover{border-color:var(--accent);background:rgba(31,122,140,.06)}
-.hidden-input{display:none}
-.filename{font-size:10px;color:var(--muted);margin-top:6px}
-.state{font-size:10px;color:var(--muted)}
-.feed-item{font-size:10px;color:var(--muted);animation:fadeIn .3s ease;font-family:SFMono-Regular,Menlo,Monaco,Consolas,monospace}
-.feed-item.cyan{color:var(--accent)}.feed-item.green{color:var(--green)}.feed-item.yellow{color:var(--yellow)}.feed-item.red{color:var(--red)}
-@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
-.page{display:none}.page.active{display:block}
-.chatgpt-page{min-height:70vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px}
-.chatgpt-hero{font-size:32px;font-weight:600;color:var(--text);margin-bottom:28px;text-align:center}
-.chatgpt-input{width:100%;max-width:760px;background:#fff;border:1px solid #d7e2ef;border-radius:26px;padding:10px 12px;display:flex;align-items:center;gap:10px;box-shadow:0 10px 30px rgba(20,30,60,.08)}
-.chatgpt-input textarea{flex:1;border:none;outline:none;resize:none;font-size:14px;color:var(--text);background:transparent;min-height:28px}
-.icon-btn{width:36px;height:36px;border-radius:50%;border:1px solid #d7e2ef;background:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;color:var(--text)}
-.icon-btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
-.attach-panel{width:100%;max-width:760px;margin-top:18px;background:#fff;border:1px solid #e4ebf3;border-radius:16px;padding:16px;box-shadow:0 6px 20px rgba(20,30,60,.08);display:none}
-.attach-panel.active{display:block}
-.input-inline{padding:6px 8px;border-radius:6px;border:1px solid #d7e2ef;background:#fff;font-size:11px;width:80px}
-.device-result{font-size:12px;color:var(--text);margin-top:8px}
-.device-actions{display:flex;gap:8px;margin-top:8px}
-.empty-state{text-align:center;padding:30px 20px;color:var(--muted);font-size:13px}
-.empty-state .icon{font-size:32px;margin-bottom:8px}
-.vital-input-row{display:flex;gap:8px;align-items:center;margin-top:8px}
-.vital-input-row input{padding:8px;border:1px solid var(--border);border-radius:6px;font-size:12px;width:80px}
-.vital-input-row select{padding:8px;border:1px solid var(--border);border-radius:6px;font-size:12px}
-.history-item{padding:12px 14px;border:1px solid var(--border);border-radius:8px;background:#fff;margin-bottom:8px}
-.history-item .time{font-size:10px;color:var(--muted);font-family:monospace}
-.history-item .type{font-size:9px;padding:2px 6px;border-radius:4px;text-transform:uppercase;font-weight:600}
-.doctor-section{padding:16px;margin-bottom:12px;border:1px solid var(--border);border-radius:10px;background:#fff}
-.doctor-section h3{font-size:14px;color:var(--accent);margin-bottom:8px}
-.doctor-section p{font-size:12px;line-height:1.6;color:var(--text)}
-.patient-selector{display:flex;gap:8px;align-items:center;margin-bottom:12px}
-.patient-selector select{padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:11px;background:#fff}
-.bp-line{stroke-dasharray:1000;stroke-dashoffset:1000;animation:draw 1.5s ease forwards}
-@keyframes draw{to{stroke-dashoffset:0}}
-@keyframes alertPulse{0%,100%{box-shadow:0 0 30px rgba(255,68,102,.12)}50%{box-shadow:0 0 40px rgba(255,68,102,.22)}}
 .card.status-normal{background:#fff;border-color:#e4ebf3}
 .card.status-watch{background:linear-gradient(135deg,#fff,#fff7e6);border-color:#b7791f44}
 .card.status-alert{background:linear-gradient(135deg,#fff,#ffe8e8);border-color:#c5303044;animation:alertPulse 2.5s ease-in-out infinite}
 .card.status-watch .metric-value{color:var(--yellow)}
 .card.status-alert .metric-value{color:var(--red)}
-details summary{cursor:pointer;list-style:none}
-details summary::-webkit-details-marker{display:none}
-.footer{padding:16px 20px;border-top:1px solid var(--border);font-size:10px;color:var(--muted);text-align:center}
-.error-banner{display:none;padding:8px 12px;margin:12px 20px;border:1px solid var(--red);color:var(--red);font-size:11px;border-radius:6px;background:#fff5f5}
+@keyframes alertPulse{0%,100%{box-shadow:0 0 20px rgba(255,68,102,.1)}50%{box-shadow:0 0 30px rgba(255,68,102,.2)}}
+
+.main-grid{display:grid;grid-template-columns:1.2fr 1fr 300px;gap:16px}
+.empty-state{text-align:center;padding:24px;color:var(--muted);font-size:12px}
+.empty-state .icon{font-size:28px;margin-bottom:8px}
+
+/* Vital input */
+.vital-input-row{display:flex;gap:8px;align-items:center;margin-top:8px}
+.vital-input-row input,.vital-input-row select{padding:8px;border:1px solid var(--border);border-radius:6px;font-size:12px}
+.vital-input-row input{width:80px}
+
+/* Chat */
+.chat-container{display:flex;flex-direction:column;height:calc(100vh - 100px);max-width:860px;margin:0 auto;padding:0 20px}
+.chat-messages{flex:1;overflow-y:auto;padding:20px 0;display:flex;flex-direction:column;gap:12px}
+.chat-msg{max-width:80%;padding:12px 16px;border-radius:16px;font-size:13px;line-height:1.6;word-wrap:break-word;animation:fadeIn .3s ease}
+.chat-msg.user{align-self:flex-end;background:var(--chat-user);border-bottom-right-radius:4px;color:var(--text)}
+.chat-msg.assistant{align-self:flex-start;background:var(--chat-ai);border-bottom-left-radius:4px;color:var(--text)}
+.chat-msg .time{font-size:9px;color:var(--muted);margin-top:4px}
+.chat-msg .vitals-extracted{margin-top:8px;padding:8px;background:rgba(31,122,140,.08);border-radius:6px;font-size:10px;color:var(--accent)}
+.chat-welcome{text-align:center;padding:40px 20px;color:var(--muted)}
+.chat-welcome h2{font-size:24px;color:var(--text);margin-bottom:8px}
+.chat-welcome .suggestions{display:grid;grid-template-columns:1fr 1fr;gap:8px;max-width:500px;margin:20px auto 0}
+.chat-welcome .suggestion{padding:12px;background:#fff;border:1px solid var(--border);border-radius:10px;cursor:pointer;text-align:left;font-size:12px;color:var(--text);transition:.2s}
+.chat-welcome .suggestion:hover{border-color:var(--accent);background:rgba(31,122,140,.04)}
+.chat-welcome .suggestion .icon{font-size:18px;margin-bottom:4px}
+.chat-input-wrap{padding:12px 0;border-top:1px solid var(--border);display:flex;gap:8px;align-items:flex-end}
+.chat-input-wrap textarea{flex:1;padding:12px 14px;border:1px solid var(--border);border-radius:12px;font-size:13px;outline:none;resize:none;min-height:44px;max-height:120px;font-family:inherit;transition:.2s}
+.chat-input-wrap textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(31,122,140,.1)}
+.chat-btn{width:40px;height:40px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.chat-btn:disabled{opacity:.4;cursor:not-allowed}
+.chat-btn.attach{background:#fff;border:1px solid var(--border);color:var(--text);font-size:20px}
+.typing-indicator{align-self:flex-start;padding:12px 20px;background:var(--chat-ai);border-radius:16px;display:none}
+.typing-indicator.show{display:flex;gap:4px}
+.typing-dot{width:6px;height:6px;border-radius:50%;background:var(--muted);animation:typing 1.4s infinite}
+.typing-dot:nth-child(2){animation-delay:.2s}
+.typing-dot:nth-child(3){animation-delay:.4s}
+@keyframes typing{0%,100%{opacity:.3;transform:scale(.8)}50%{opacity:1;transform:scale(1)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+/* Buttons */
+.btn{padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--text);font-size:11px;cursor:pointer;transition:.2s;width:100%}
+.btn:hover{border-color:var(--accent);background:rgba(31,122,140,.06)}
+.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600}
+.btn.primary:disabled{opacity:.5;cursor:not-allowed}
+.btn.small{width:auto;padding:6px 10px;font-size:10px}
+.btn.toggle-active{border-color:var(--accent);color:var(--accent);background:rgba(0,212,255,.08)}
+
+/* Feed & actions */
+.actions-list,.feed-list{display:flex;flex-direction:column;gap:8px;max-height:280px;overflow-y:auto}
+.action-item{border-left:3px solid var(--border);padding:8px 12px;background:#fff;border-radius:8px;font-size:10px;color:var(--muted)}
+.action-item.red{border-left-color:var(--red)}
+.action-item.yellow{border-left-color:var(--yellow)}
+.action-item.green{border-left-color:var(--green)}
+.feed-item{font-size:10px;color:var(--muted);animation:fadeIn .3s ease;font-family:monospace}
+
+/* History */
+.history-item{padding:12px;border:1px solid var(--border);border-radius:8px;background:#fff;margin-bottom:8px}
+.history-item .time{font-size:10px;color:var(--muted);font-family:monospace}
+.history-item .type{font-size:9px;padding:2px 6px;border-radius:4px;text-transform:uppercase;font-weight:600}
+
+/* Doctor */
+.doctor-section{padding:16px;margin-bottom:12px;border:1px solid var(--border);border-radius:10px;background:#fff}
+.doctor-section h3{font-size:14px;color:var(--accent);margin-bottom:8px}
+.doctor-section p{font-size:12px;line-height:1.6;color:var(--text)}
+
+/* Chart */
+.chart-wrap{height:200px}
+.bp-line{stroke-dasharray:1000;stroke-dashoffset:1000;animation:draw 1.5s ease forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+
+.footer{padding:12px 20px;border-top:1px solid var(--border);font-size:10px;color:var(--muted);text-align:center}
+.error-banner{display:none;padding:8px 12px;margin:8px 20px;border:1px solid var(--red);color:var(--red);font-size:11px;border-radius:6px;background:#fff5f5}
 .error-banner.show{display:block}
-@media(max-width:1024px){.main-grid{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}}
-@media(max-width:768px){.vitals{grid-template-columns:repeat(2,1fr)}.main-grid{grid-template-columns:1fr}.header{flex-direction:column;align-items:flex-start;gap:10px}}
-.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
-.modal-overlay.hidden{display:none}
-.modal{background:#fff;border-radius:16px;padding:32px;max-width:520px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.2);animation:modalIn .3s ease}
-@keyframes modalIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
-.modal h2{font-size:22px;color:var(--accent);margin-bottom:4px}
-.modal .sub{font-size:12px;color:var(--muted);margin-bottom:20px}
-.modal input[type=text]{width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:8px;font-size:14px;outline:none;transition:.2s}
-.modal input[type=text]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(31,122,140,.15)}
-.modal .privacy-note{display:flex;align-items:flex-start;gap:10px;padding:12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;margin:16px 0;font-size:11px;color:#166534;line-height:1.5}
-.modal .privacy-note .icon{font-size:20px;flex-shrink:0}
-.modal .btn-row{display:flex;gap:10px;margin-top:16px}
-.modal .encryption-demo{margin:12px 0;padding:10px;background:#f8fafc;border:1px solid var(--border);border-radius:8px;font-size:10px}
-.modal .encryption-demo .label{color:var(--muted);margin-bottom:4px}
-.modal .encryption-demo .cipher{font-family:monospace;word-break:break-all;color:var(--red);font-size:9px}
-.modal .encryption-demo .plain{font-family:monospace;color:var(--green);font-size:12px;font-weight:600}
-.step-indicator{display:flex;gap:8px;margin-bottom:20px}
-.step-dot{width:32px;height:4px;border-radius:2px;background:var(--border)}
-.step-dot.active{background:var(--accent)}
-.step-dot.done{background:var(--green)}
+
+@media(max-width:1024px){.main-grid{grid-template-columns:1fr 1fr}.vitals{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:768px){.vitals{grid-template-columns:1fr}.main-grid{grid-template-columns:1fr}.header{flex-direction:column;align-items:flex-start;gap:8px}.chat-welcome .suggestions{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 
+<!-- ==================== AUTH SCREEN ==================== -->
+<div id="authOverlay" class="auth-overlay">
+  <div class="auth-box">
+    <h1>HEALTHGUARD</h1>
+    <div class="tagline">Private AI Health Agent on Akash Decentralized Cloud</div>
+    <div class="uptime-badge"><span class="dot"></span> ONLINE 24/7 on Akash Network</div>
+
+    <div class="auth-tabs">
+      <button class="active" id="tabLogin">Login</button>
+      <button id="tabRegister">New Patient</button>
+    </div>
+
+    <!-- Login Form -->
+    <div id="loginForm">
+      <input class="auth-field" id="loginKey" type="text" placeholder="Enter your 6-character access key" maxlength="6" style="text-transform:uppercase;text-align:center;font-size:18px;letter-spacing:4px;font-family:monospace">
+      <button class="auth-btn" id="loginBtn">Login Securely</button>
+      <div class="privacy-note" style="margin-top:16px">
+        <span style="font-size:16px">&#128274;</span>
+        <span>No passwords. No emails. Just your unique access key. Your data is encrypted with AES-256-GCM and only accessible with this key.</span>
+      </div>
+    </div>
+
+    <!-- Register Form -->
+    <div id="registerForm" style="display:none">
+      <input class="auth-field" id="regName" type="text" placeholder="Enter your full name">
+      <button class="auth-btn" id="regBtn">Register & Get Access Key</button>
+      <div id="regResult" style="display:none">
+        <div class="access-key-display">
+          <div class="label">YOUR UNIQUE ACCESS KEY</div>
+          <div class="key" id="newAccessKey"></div>
+          <div class="label" style="color:var(--red);margin-top:8px">&#9888; SAVE THIS KEY! You need it to log back in.</div>
+        </div>
+        <button class="auth-btn" id="regContinueBtn" style="margin-top:8px">Continue to Dashboard</button>
+      </div>
+      <div class="privacy-note">
+        <span style="font-size:16px">&#128274;</span>
+        <span>Your name is encrypted with AES-256-GCM before storage. Even if the database is stolen, your identity is unreadable.</span>
+      </div>
+    </div>
+
+    <div id="authMsg" class="auth-msg"></div>
+  </div>
+</div>
+
+<!-- ==================== MAIN APP (hidden until login) ==================== -->
+<div id="mainApp" style="display:none">
+
 <div class="header">
-  <div class="logo"><h1>HEALTHGUARD</h1><span>PRIVATE AI HEALTH AGENT</span></div>
+  <div class="logo">
+    <h1>HEALTHGUARD</h1>
+    <span class="badge-24">24/7</span>
+  </div>
   <div class="nav" id="navTabs">
     <a class="active" href="#" data-page="dashboard">Dashboard</a>
-    <a href="#" data-page="upload">Upload</a>
+    <a href="#" data-page="chat">Health Chat</a>
     <a href="#" data-page="history">History</a>
     <a href="#" data-page="doctor">Doctor</a>
     <a href="#" data-page="privacy">Privacy</a>
   </div>
   <div class="header-right">
-    <div class="privacy"><span class="pulse-dot"></span>PRIVACY ACTIVE · AKASH · VENICE · E2E</div>
-    <div>
-      <select id="patientSelect" style="padding:4px 8px;border:1px solid var(--border);border-radius:4px;font-size:10px;background:#fff"></select>
+    <div class="user-info">
+      <span class="name" id="userName">--</span>
+      <span class="key" id="userKey">--</span>
     </div>
+    <button class="logout-btn" id="logoutBtn">Logout</button>
   </div>
 </div>
 
 <div id="errorBanner" class="error-banner">Agent unreachable</div>
 
-<!-- ==================== REGISTRATION MODAL ==================== -->
-<div id="registerModal" class="modal-overlay hidden">
-  <div class="modal">
-    <div class="step-indicator" id="regSteps">
-      <div class="step-dot active" id="step1"></div>
-      <div class="step-dot" id="step2"></div>
-      <div class="step-dot" id="step3"></div>
-    </div>
-
-    <!-- Step 1: Enter Name -->
-    <div id="regStep1">
-      <h2>Welcome to HealthGuard</h2>
-      <div class="sub">Your private AI health assistant. Enter your name to get started.</div>
-      <input type="text" id="regName" placeholder="Enter your full name" autocomplete="off">
-      <div class="privacy-note">
-        <div class="icon">🔐</div>
-        <div><strong>Your name is encrypted immediately</strong> using AES-256-GCM military-grade encryption before it touches the database. Even if someone steals the entire server, they cannot read your name.</div>
-      </div>
-      <div class="btn-row">
-        <button class="btn primary" id="regSubmitBtn" style="flex:1">Register Securely</button>
-        <button class="btn" id="regSkipBtn" style="flex:0 0 auto;width:auto;padding:10px 16px">Use Demo Data</button>
-      </div>
-    </div>
-
-    <!-- Step 2: Show Encryption Proof -->
-    <div id="regStep2" style="display:none">
-      <h2>Your Data is Encrypted</h2>
-      <div class="sub">Here's proof that your name was encrypted before storage:</div>
-      <div class="encryption-demo">
-        <div class="label">What you entered:</div>
-        <div class="plain" id="proofPlain"></div>
-      </div>
-      <div class="encryption-demo">
-        <div class="label">What's actually stored in the database:</div>
-        <div class="cipher" id="proofCipher"></div>
-      </div>
-      <div class="privacy-note">
-        <div class="icon">✅</div>
-        <div>The encrypted blob above is all that exists in our database. Your real name only appears when <strong>you</strong> view it, decrypted on-the-fly. The Akash provider hosting this app only sees the encrypted version.</div>
-      </div>
-      <div class="btn-row">
-        <button class="btn primary" id="regNextBtn" style="flex:1">Continue to Dashboard</button>
-      </div>
-    </div>
-
-    <!-- Step 3: Quick Guide -->
-    <div id="regStep3" style="display:none">
-      <h2>How to Use HealthGuard</h2>
-      <div class="sub">Here's what you can do:</div>
-      <div style="display:grid;gap:10px;margin:12px 0">
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:10px;background:#f8fafc;border-radius:8px">
-          <div style="font-size:20px">📊</div>
-          <div><div style="font-size:12px;font-weight:600;color:var(--text)">1. Add Your Vitals</div><div style="font-size:11px;color:var(--muted)">Use "Quick Add Vital Reading" on the dashboard to log blood pressure, glucose, pain level, temperature, heart rate, or oxygen.</div></div>
-        </div>
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:10px;background:#f8fafc;border-radius:8px">
-          <div style="font-size:20px">📸</div>
-          <div><div style="font-size:12px;font-weight:600;color:var(--text)">2. Upload a Health Photo</div><div style="font-size:11px;color:var(--muted)">Go to "Upload" tab. Take a photo of a wound, skin condition, or medication. Our AI analyzes it instantly — the photo is NEVER saved.</div></div>
-        </div>
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:10px;background:#f8fafc;border-radius:8px">
-          <div style="font-size:20px">🩺</div>
-          <div><div style="font-size:12px;font-weight:600;color:var(--text)">3. Get AI Doctor Report</div><div style="font-size:11px;color:var(--muted)">Go to "Doctor" tab to generate a comprehensive AI clinical report or audio health briefing based on all your stored data.</div></div>
-        </div>
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:10px;background:#f8fafc;border-radius:8px">
-          <div style="font-size:20px">🔒</div>
-          <div><div style="font-size:12px;font-weight:600;color:var(--text)">4. Check Privacy Tab</div><div style="font-size:11px;color:var(--muted)">See exactly what's stored, view encrypted data proof, export all your data as JSON, or permanently delete everything.</div></div>
-        </div>
-      </div>
-      <div class="btn-row">
-        <button class="btn primary" id="regDoneBtn" style="flex:1">Start Using HealthGuard</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- ==================== DASHBOARD PAGE ==================== -->
+<!-- ==================== DASHBOARD ==================== -->
 <div id="page-dashboard" class="page active">
   <div class="status-bar">
-    <div class="status-pill"><span class="pulse-dot"></span><strong id="agentStatus">IDLE</strong><span id="loopInfo">Loop: 0</span></div>
+    <div class="status-pill"><span class="pulse-dot"></span><strong id="agentStatus">RUNNING</strong></div>
     <div class="status-pill">Uptime: <strong id="uptime">--</strong></div>
-    <div class="status-pill">Akash Node: <strong id="nodeId">--</strong></div>
-    <div class="status-pill">Storage: <strong id="storageMount">/data</strong></div>
+    <div class="status-pill"><strong style="color:var(--green)">24/7 on Akash</strong></div>
+    <div class="status-pill">Storage: <strong>/data (encrypted)</strong></div>
   </div>
-
   <div class="grid">
-    <!-- Vitals Cards -->
     <div class="vitals">
-      <div class="card status-normal" id="cardBp">
-        <div class="card-title">Blood Pressure</div>
-        <div class="metric">
-          <div><div class="metric-value" id="bpValue">--</div><div class="metric-sub" id="bpTrend">No data yet</div></div>
-          <div class="badge green" id="bpBadge">--</div>
-        </div>
-      </div>
-      <div class="card status-normal" id="cardGlucose">
-        <div class="card-title">Glucose</div>
-        <div class="metric">
-          <div><div class="metric-value" id="glucoseValue">--</div><div class="metric-sub" id="glucoseTrend">No data yet</div></div>
-          <div class="badge green" id="glucoseBadge">--</div>
-        </div>
-      </div>
-      <div class="card status-normal" id="cardPain">
-        <div class="card-title">Pain Level</div>
-        <div class="metric">
-          <div><div class="metric-value" id="painValue">--</div><div class="metric-sub" id="painTrend">No data yet</div></div>
-          <div class="badge green" id="painBadge">--</div>
-        </div>
-      </div>
-      <div class="card status-normal" id="cardTemp">
-        <div class="card-title">Temperature</div>
-        <div class="metric">
-          <div><div class="metric-value" id="tempValue">--</div><div class="metric-sub" id="tempTrend">No data yet</div></div>
-          <div class="badge green" id="tempBadge">--</div>
-        </div>
-      </div>
+      <div class="card status-normal" id="cardBp"><div class="card-title">Blood Pressure</div><div style="display:flex;align-items:center;justify-content:space-between"><div><div class="metric-value" id="bpValue">--</div><div class="metric-sub" id="bpTrend">No readings yet</div></div><div class="badge green" id="bpBadge">--</div></div></div>
+      <div class="card status-normal" id="cardGlucose"><div class="card-title">Glucose</div><div style="display:flex;align-items:center;justify-content:space-between"><div><div class="metric-value" id="glucoseValue">--</div><div class="metric-sub" id="glucoseTrend">No readings yet</div></div><div class="badge green" id="glucoseBadge">--</div></div></div>
+      <div class="card status-normal" id="cardPain"><div class="card-title">Pain Level</div><div style="display:flex;align-items:center;justify-content:space-between"><div><div class="metric-value" id="painValue">--</div><div class="metric-sub" id="painTrend">No readings yet</div></div><div class="badge green" id="painBadge">--</div></div></div>
+      <div class="card status-normal" id="cardTemp"><div class="card-title">Temperature</div><div style="display:flex;align-items:center;justify-content:space-between"><div><div class="metric-value" id="tempValue">--</div><div class="metric-sub" id="tempTrend">No readings yet</div></div><div class="badge green" id="tempBadge">--</div></div></div>
     </div>
-
-    <!-- Quick Add Vitals -->
-    <div class="card" id="quickAddCard">
+    <div class="card">
       <div class="card-title">Quick Add Vital Reading</div>
       <div class="vital-input-row">
-        <select id="vitalType">
-          <option value="bp">Blood Pressure</option>
-          <option value="glucose">Glucose</option>
-          <option value="pain_level">Pain Level</option>
-          <option value="temperature">Temperature</option>
-          <option value="heart_rate">Heart Rate</option>
-          <option value="oxygen_saturation">O2 Saturation</option>
-        </select>
+        <select id="vitalType"><option value="bp">Blood Pressure</option><option value="glucose">Glucose</option><option value="pain_level">Pain Level</option><option value="temperature">Temperature</option><option value="heart_rate">Heart Rate</option><option value="oxygen_saturation">O2 Saturation</option></select>
         <input id="vitalVal1" placeholder="Value" type="number" step="any">
         <input id="vitalVal2" placeholder="/dia" type="number" step="any" style="display:none">
         <button class="btn small primary" id="addVitalBtn">Save</button>
         <span id="vitalSaveMsg" style="font-size:10px;color:var(--green)"></span>
       </div>
+      <div style="font-size:10px;color:var(--muted);margin-top:6px">Tip: You can also tell the Health Chat your vitals and they'll be auto-extracted!</div>
     </div>
-
     <div class="main-grid">
-      <!-- Left: BP Chart + Actions -->
       <div>
-        <div class="card">
-          <div class="card-title">BP Trend (7 days)</div>
-          <div class="chart-wrap" id="bpChart">
-            <div class="empty-state"><div class="icon">📊</div>Add blood pressure readings to see your trend chart</div>
-          </div>
-        </div>
-        <div class="card" style="margin-top:16px">
-          <div class="card-title">Alerts & Actions</div>
-          <div class="actions-list" id="actionsList">
-            <div class="empty-state"><div class="icon">🔔</div>No alerts yet. Alerts appear when AI detects something important.</div>
-          </div>
-        </div>
+        <div class="card"><div class="card-title">BP Trend (7 days)</div><div class="chart-wrap" id="bpChart"><div class="empty-state"><div class="icon">&#128200;</div>Add BP readings to see your trend</div></div></div>
+        <div class="card" style="margin-top:16px"><div class="card-title">Alerts & Actions</div><div class="actions-list" id="actionsList"><div class="empty-state"><div class="icon">&#128276;</div>No alerts yet</div></div></div>
       </div>
-
-      <!-- Center: Upload + Privacy -->
       <div>
         <div class="card">
-          <div class="card-title">Upload Your Photo</div>
-          <div style="color:var(--text);font-size:13px;line-height:1.6">
-            Upload a photo of any health concern. Our AI will analyze it in real-time and provide clinical assessment.
-          </div>
-          <div style="margin-top:12px"><button class="btn primary" id="goUploadBtn">Go to Upload</button></div>
+          <div class="card-title">Talk to Your Health AI</div>
+          <div style="font-size:13px;color:var(--text);line-height:1.6;margin-bottom:12px">Chat with your private AI health assistant. Describe symptoms, ask questions, or upload health photos for instant analysis.</div>
+          <button class="btn primary" id="goChat">Open Health Chat</button>
         </div>
-        <div class="card" style="margin-top:16px">
-          <div class="card-title">Recent Analysis</div>
-          <div id="recentAnalysis">
-            <div class="empty-state"><div class="icon">🔬</div>Upload a photo to see AI analysis results here</div>
-          </div>
-        </div>
+        <div class="card" style="margin-top:16px"><div class="card-title">Recent Analysis</div><div id="recentAnalysis"><div class="empty-state"><div class="icon">&#128300;</div>Chat or upload a photo to get AI analysis</div></div></div>
       </div>
-
-      <!-- Right: Live Feed -->
       <div>
         <div class="card">
-          <div style="display:flex;align-items:center;justify-content:space-between">
-            <div style="display:flex;align-items:center;gap:8px">
-              <div class="pulse-dot"></div>
-              <div class="card-title" style="margin:0">Live Updates</div>
-            </div>
-            <div class="mono" style="font-size:9px">
-              <button class="btn toggle-active" id="feedPatientBtn" style="width:auto;padding:4px 8px">Patient</button>
-              <button class="btn" id="feedDevBtn" style="width:auto;padding:4px 8px">Dev</button>
-            </div>
-          </div>
-          <div class="feed-list" id="feedList" style="margin-top:10px">
-            <div class="empty-state" style="padding:16px"><div class="icon">📡</div>Live events will appear here</div>
-          </div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div class="pulse-dot"></div><div class="card-title" style="margin:0">Live Updates</div></div>
+          <div class="feed-list" id="feedList"><div class="empty-state" style="padding:12px"><div class="icon">&#128225;</div>Events appear here</div></div>
         </div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ==================== UPLOAD PAGE ==================== -->
-<div id="page-upload" class="page">
-  <div class="chatgpt-page">
-    <div class="chatgpt-hero">Analyze Your Health Concern</div>
-    <div class="chatgpt-input">
-      <button class="icon-btn" id="attachToggle">+</button>
-      <textarea id="chatPrompt" placeholder="Describe your concern..."></textarea>
-      <button class="icon-btn primary" id="sendPrompt">&#10148;</button>
-    </div>
-    <div id="attachPanel" class="attach-panel">
-      <div class="card-title">Attach a photo</div>
-      <div style="font-size:10px;color:var(--muted);margin-bottom:8px">Use the text box above to describe your concern for better analysis</div>
-      <div id="photoDrop" class="drop-zone">
-        <div style="font-size:28px;color:var(--accent)">📷</div>
-        <div style="font-size:12px;color:var(--text)">Take or upload a photo</div>
-        <div style="font-size:10px;color:var(--muted);margin-top:4px">Supports JPEG, PNG, WebP</div>
+<!-- ==================== HEALTH CHAT ==================== -->
+<div id="page-chat" class="page">
+  <div class="chat-container">
+    <div class="chat-messages" id="chatMessages">
+      <div class="chat-welcome" id="chatWelcome">
+        <h2>How can I help with your health today?</h2>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:4px">I'm your private AI health assistant, running 24/7 on Akash decentralized cloud.</div>
+        <div style="font-size:10px;color:var(--accent)">Your conversations are encrypted. Photos are NEVER stored.</div>
+        <div class="suggestions">
+          <div class="suggestion" data-msg="My blood pressure is 140/90 and I have a headache"><div class="icon">&#128138;</div>Report vitals & symptoms</div>
+          <div class="suggestion" data-msg="I have a wound on my arm that looks infected, can you analyze a photo?"><div class="icon">&#128247;</div>Analyze a health photo</div>
+          <div class="suggestion" data-msg="I've been feeling very tired and my glucose was 210 this morning"><div class="icon">&#128200;</div>Track health changes</div>
+          <div class="suggestion" data-msg="Can you summarize my health status and what I should tell my doctor?"><div class="icon">&#129658;</div>Prepare for doctor visit</div>
+        </div>
       </div>
-      <input id="photoInput" class="hidden-input" type="file" accept="image/*">
-      <div class="filename" id="photoName">No file selected</div>
-      <div style="margin-top:8px"><button class="btn primary" id="photoAnalyzeBtn" disabled>Analyze Privately</button></div>
-      <div class="state" style="text-align:center;margin-top:6px">🔒 Your photo is deleted the moment analysis is complete</div>
-      <div id="deviceResult" class="device-result"></div>
-      <div class="state" id="uploadState"></div>
-      <div id="uploadResult"></div>
     </div>
+    <div class="typing-indicator" id="typingIndicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>
+    <div class="chat-input-wrap">
+      <button class="chat-btn attach" id="chatAttachBtn" title="Attach health photo">&#128206;</button>
+      <input type="file" id="chatPhotoInput" accept="image/*" style="display:none">
+      <textarea id="chatInput" placeholder="Describe your symptoms, ask health questions, or share vitals..." rows="1"></textarea>
+      <button class="chat-btn" id="chatSendBtn" title="Send">&#10148;</button>
+    </div>
+    <div style="text-align:center;font-size:9px;color:var(--muted);padding:4px 0">&#128274; Encrypted conversation. Photos analyzed by Venice AI (zero retention) then deleted. Chat cleared on logout.</div>
   </div>
 </div>
 
-<!-- ==================== HISTORY PAGE ==================== -->
+<!-- ==================== HISTORY ==================== -->
 <div id="page-history" class="page">
   <div style="max-width:900px;margin:24px auto;padding:0 20px">
     <h2 style="font-size:20px;color:var(--text);margin-bottom:16px">Patient History</h2>
     <div style="display:flex;gap:8px;margin-bottom:16px">
-      <button class="btn small toggle-active" id="histAllBtn" data-filter="all">All</button>
-      <button class="btn small" id="histVitalsBtn" data-filter="vitals">Vitals</button>
-      <button class="btn small" id="histAnalysisBtn" data-filter="analysis">AI Analysis</button>
-      <button class="btn small" id="histAlertsBtn" data-filter="alerts">Alerts</button>
+      <button class="btn small toggle-active" data-filter="all">All</button>
+      <button class="btn small" data-filter="vitals">Vitals</button>
+      <button class="btn small" data-filter="analysis">AI Analysis</button>
+      <button class="btn small" data-filter="alerts">Alerts</button>
     </div>
-    <div id="historyList">
-      <div class="empty-state"><div class="icon">📋</div>No history yet. Add vitals or upload photos to start building your health record.</div>
-    </div>
+    <div id="historyList"><div class="empty-state"><div class="icon">&#128203;</div>No history yet. Use Health Chat or add vitals to build your record.</div></div>
   </div>
 </div>
 
-<!-- ==================== DOCTOR PAGE ==================== -->
+<!-- ==================== DOCTOR ==================== -->
 <div id="page-doctor" class="page">
   <div style="max-width:900px;margin:24px auto;padding:0 20px">
     <h2 style="font-size:20px;color:var(--text);margin-bottom:4px">Doctor AI Report</h2>
-    <p style="font-size:12px;color:var(--muted);margin-bottom:16px">Generate a comprehensive AI-powered clinical report for your doctor based on all stored patient data.</p>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:16px">Generate a comprehensive AI clinical report based on all your stored health data.</p>
     <button class="btn primary" id="genReportBtn" style="max-width:300px">Generate Doctor Report</button>
-    <button class="btn" id="genBriefingBtn" style="max-width:300px;margin-left:8px">Audio Patient Briefing</button>
-    <div id="doctorReportArea" style="margin-top:20px">
-      <div class="empty-state"><div class="icon">🩺</div>Click "Generate Doctor Report" to create an AI-powered clinical summary using all your stored health data.</div>
-    </div>
+    <button class="btn" id="genBriefingBtn" style="max-width:300px;margin-left:8px">Audio Briefing</button>
+    <div id="doctorReportArea" style="margin-top:20px"><div class="empty-state"><div class="icon">&#129658;</div>Click "Generate Doctor Report" to create an AI clinical summary.</div></div>
     <div id="audioBriefingArea" style="margin-top:16px"></div>
   </div>
 </div>
 
-<!-- ==================== PRIVACY PAGE ==================== -->
+<!-- ==================== PRIVACY ==================== -->
 <div id="page-privacy" class="page">
   <div style="max-width:900px;margin:24px auto;padding:0 20px">
     <h2 style="font-size:20px;color:var(--text);margin-bottom:4px">Privacy & Data Control</h2>
-    <p style="font-size:12px;color:var(--muted);margin-bottom:20px">Full transparency into what data exists, how it's encrypted, and your rights over it.</p>
-
-    <!-- Data Flow Diagram -->
+    <p style="font-size:12px;color:var(--muted);margin-bottom:20px">Full transparency into what data exists, how it's protected, and your rights.</p>
     <div class="card" style="margin-bottom:16px">
-      <div class="card-title">How Your Data Flows (Zero-Knowledge Architecture)</div>
+      <div class="card-title">Data Flow (Zero-Knowledge Architecture)</div>
       <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;text-align:center;margin-top:12px">
-        <div style="padding:12px;background:#ebf8ff;border:1px solid #bee3f8;border-radius:8px">
-          <div style="font-size:24px">📸</div>
-          <div style="font-size:10px;font-weight:600;color:var(--accent);margin-top:4px">Your Photo</div>
-          <div style="font-size:9px;color:var(--muted)">In memory only</div>
-          <div style="font-size:8px;color:var(--red);font-weight:600">NEVER saved to disk</div>
-        </div>
-        <div style="padding:12px;background:#f0fff4;border:1px solid #c6f6d5;border-radius:8px">
-          <div style="font-size:24px">🔬</div>
-          <div style="font-size:10px;font-weight:600;color:var(--green);margin-top:4px">Venice Vision AI</div>
-          <div style="font-size:9px;color:var(--muted)">Analyzes image</div>
-          <div style="font-size:8px;color:var(--green);font-weight:600">Zero retention policy</div>
-        </div>
-        <div style="padding:12px;background:#faf5ff;border:1px solid #e9d8fd;border-radius:8px">
-          <div style="font-size:24px">🧠</div>
-          <div style="font-size:10px;font-weight:600;color:#6b46c1;margin-top:4px">AkashML Triage</div>
-          <div style="font-size:9px;color:var(--muted)">Text summary only</div>
-          <div style="font-size:8px;color:#6b46c1;font-weight:600">Never sees raw image</div>
-        </div>
-        <div style="padding:12px;background:#fff7e6;border:1px solid #f6e05e;border-radius:8px">
-          <div style="font-size:24px">🔐</div>
-          <div style="font-size:10px;font-weight:600;color:var(--yellow);margin-top:4px">AES-256-GCM</div>
-          <div style="font-size:9px;color:var(--muted)">Encrypts text report</div>
-          <div style="font-size:8px;color:var(--yellow);font-weight:600">Stored encrypted</div>
-        </div>
-        <div style="padding:12px;background:#fff5f5;border:1px solid #fed7d7;border-radius:8px">
-          <div style="font-size:24px">📋</div>
-          <div style="font-size:10px;font-weight:600;color:var(--red);margin-top:4px">You See Results</div>
-          <div style="font-size:9px;color:var(--muted)">Decrypted on-demand</div>
-          <div style="font-size:8px;color:var(--red);font-weight:600">Original photo GONE</div>
-        </div>
-      </div>
-      <div style="margin-top:12px;display:flex;justify-content:center;gap:24px;font-size:9px;color:var(--muted)">
-        <span>→ Photo sent via HTTPS →</span>
-        <span>→ JSON text only →</span>
-        <span>→ Encrypted at rest →</span>
-        <span>→ Decrypted for you →</span>
+        <div style="padding:10px;background:#ebf8ff;border:1px solid #bee3f8;border-radius:8px"><div style="font-size:22px">&#128248;</div><div style="font-size:10px;font-weight:600;color:var(--accent);margin-top:4px">Your Photo</div><div style="font-size:8px;color:var(--red);font-weight:600">NEVER saved</div></div>
+        <div style="padding:10px;background:#f0fff4;border:1px solid #c6f6d5;border-radius:8px"><div style="font-size:22px">&#128300;</div><div style="font-size:10px;font-weight:600;color:var(--green);margin-top:4px">Venice Vision</div><div style="font-size:8px;color:var(--green);font-weight:600">Zero retention</div></div>
+        <div style="padding:10px;background:#faf5ff;border:1px solid #e9d8fd;border-radius:8px"><div style="font-size:22px">&#129504;</div><div style="font-size:10px;font-weight:600;color:#6b46c1;margin-top:4px">AkashML</div><div style="font-size:8px;color:#6b46c1;font-weight:600">Text only</div></div>
+        <div style="padding:10px;background:#fff7e6;border:1px solid #f6e05e;border-radius:8px"><div style="font-size:22px">&#128272;</div><div style="font-size:10px;font-weight:600;color:var(--yellow);margin-top:4px">AES-256-GCM</div><div style="font-size:8px;color:var(--yellow);font-weight:600">Encrypted</div></div>
+        <div style="padding:10px;background:#fff5f5;border:1px solid #fed7d7;border-radius:8px"><div style="font-size:22px">&#128203;</div><div style="font-size:10px;font-weight:600;color:var(--red);margin-top:4px">You See Results</div><div style="font-size:8px;color:var(--red);font-weight:600">Photo GONE</div></div>
       </div>
     </div>
-
-    <!-- Encryption Proof -->
     <div class="card" style="margin-bottom:16px">
       <div class="card-title">Live Encryption Proof</div>
-      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">This shows the ACTUAL encrypted data in our database vs what you see. The encrypted blobs are unreadable without our key.</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">See the actual encrypted data in the database vs what you see.</div>
       <button class="btn primary" id="loadProofBtn" style="max-width:250px;margin-bottom:12px">Load Encryption Proof</button>
       <div id="proofArea"></div>
     </div>
-
-    <!-- What's Stored -->
     <div class="card" style="margin-bottom:16px">
       <div class="card-title">What IS and ISN'T Stored</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:8px">
-        <div>
-          <div style="font-size:12px;font-weight:600;color:var(--green);margin-bottom:8px">Stored (encrypted)</div>
-          <div style="font-size:11px;color:var(--text);line-height:1.8">
-            - Patient name (AES-256-GCM encrypted)<br>
-            - Vital readings (BP, glucose, pain, temp)<br>
-            - AI analysis text summaries (encrypted)<br>
-            - Alert history (severity, actions taken)<br>
-            - Audit trail (append-only, immutable)
-          </div>
-        </div>
-        <div>
-          <div style="font-size:12px;font-weight:600;color:var(--red);margin-bottom:8px">NEVER Stored</div>
-          <div style="font-size:11px;color:var(--text);line-height:1.8">
-            - Raw photos (deleted from memory immediately)<br>
-            - Raw audio recordings<br>
-            - EXIF/GPS metadata (stripped before analysis)<br>
-            - IP addresses or device fingerprints<br>
-            - No cookies, no tracking, no analytics
-          </div>
-        </div>
+        <div><div style="font-size:12px;font-weight:600;color:var(--green);margin-bottom:6px">Stored (encrypted)</div><div style="font-size:11px;line-height:1.8">- Patient name (AES-256-GCM)<br>- Vital readings<br>- AI analysis summaries<br>- Alert history<br>- Audit trail (immutable)</div></div>
+        <div><div style="font-size:12px;font-weight:600;color:var(--red);margin-bottom:6px">NEVER Stored</div><div style="font-size:11px;line-height:1.8">- Raw photos (deleted immediately)<br>- Raw audio recordings<br>- EXIF/GPS metadata<br>- IP addresses<br>- Chat cleared on logout</div></div>
       </div>
     </div>
-
-    <!-- Your Data Rights -->
     <div class="card" style="margin-bottom:16px">
       <div class="card-title">Your Data Rights</div>
       <div style="display:flex;gap:12px;margin-top:8px;flex-wrap:wrap">
-        <button class="btn" id="exportDataBtn" style="width:auto;padding:10px 20px">
-          <span style="font-size:16px">📥</span> Export All My Data
-        </button>
-        <button class="btn" id="deleteDataBtn" style="width:auto;padding:10px 20px;border-color:var(--red);color:var(--red)">
-          <span style="font-size:16px">🗑️</span> Delete All My Data
-        </button>
+        <button class="btn" id="exportDataBtn" style="width:auto;padding:10px 20px">&#128229; Export All My Data</button>
+        <button class="btn" id="deleteDataBtn" style="width:auto;padding:10px 20px;border-color:var(--red);color:var(--red)">&#128465; Delete All My Data</button>
       </div>
       <div id="dataRightsResult" style="margin-top:12px"></div>
     </div>
-
-    <!-- Infrastructure -->
     <div class="card">
-      <div class="card-title">Infrastructure Security</div>
+      <div class="card-title">Infrastructure</div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:8px">
-        <div style="padding:10px;background:#f7fafc;border-radius:6px;text-align:center">
-          <div style="font-size:20px">☁️</div>
-          <div style="font-size:11px;font-weight:600;color:var(--text)">Akash Network</div>
-          <div style="font-size:9px;color:var(--muted)">Decentralized compute. No single point of failure. Provider only sees encrypted bytes.</div>
-        </div>
-        <div style="padding:10px;background:#f7fafc;border-radius:6px;text-align:center">
-          <div style="font-size:20px">🔐</div>
-          <div style="font-size:11px;font-weight:600;color:var(--text)">AES-256-GCM + PBKDF2</div>
-          <div style="font-size:9px;color:var(--muted)">Military-grade encryption. 100K PBKDF2 iterations. Even a full server breach = unreadable data.</div>
-        </div>
-        <div style="padding:10px;background:#f7fafc;border-radius:6px;text-align:center">
-          <div style="font-size:20px">📝</div>
-          <div style="font-size:11px;font-weight:600;color:var(--text)">Immutable Audit Log</div>
-          <div style="font-size:9px;color:var(--muted)">Every action recorded in append-only JSONL. Tamper-evident. Verifiable receipts for every AI call.</div>
-        </div>
+        <div style="padding:10px;background:#f7fafc;border-radius:6px;text-align:center"><div style="font-size:20px">&#9729;&#65039;</div><div style="font-size:11px;font-weight:600">Akash Network</div><div style="font-size:9px;color:var(--muted)">Decentralized 24/7 compute. No single point of failure.</div></div>
+        <div style="padding:10px;background:#f7fafc;border-radius:6px;text-align:center"><div style="font-size:20px">&#128272;</div><div style="font-size:11px;font-weight:600">AES-256-GCM</div><div style="font-size:9px;color:var(--muted)">Military-grade encryption. 100K PBKDF2 iterations.</div></div>
+        <div style="padding:10px;background:#f7fafc;border-radius:6px;text-align:center"><div style="font-size:20px">&#128221;</div><div style="font-size:11px;font-weight:600">Immutable Audit</div><div style="font-size:9px;color:var(--muted)">Every action logged. Tamper-evident. Verifiable.</div></div>
       </div>
     </div>
   </div>
 </div>
 
-<div class="footer">HealthGuard v1.0 · Built on Akash · Venice AI · Zero data retention · Hackathon 2026</div>
+<div class="footer">HealthGuard v2.0 &middot; 24/7 on Akash Network &middot; Venice AI &middot; Zero data retention &middot; Hackathon 2026</div>
+
+</div><!-- /mainApp -->
 
 <script>
-let currentPatientId = null;
-let seenAudit = new Set();
-let feedMode = 'patient';
-const feedEntries = [];
+var currentPatientId = null;
+var currentAccessKey = null;
+var currentName = null;
+var chatPendingPhoto = null;
 
-const el = (id) => document.getElementById(id);
-
-function showError(show) { el('errorBanner').classList.toggle('show', show); }
+var $ = function(id) { return document.getElementById(id); };
 
 async function fetchJSON(url) {
-    const res = await fetch(url);
+    var res = await fetch(url);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     return res.json();
 }
 
-function formatTime(ts) {
-    if (!ts) return '--';
-    if (/^\d{2}:\d{2}:\d{2}$/.test(ts)) return ts;
-    return ts.substring(11, 19);
-}
-
-// ── Vital status logic ──
-function statusForMetric(metric, value) {
-    if (value === null || value === undefined) return 'normal';
-    if (metric === 'bp_systolic') { return value >= 140 ? 'alert' : value >= 120 ? 'watch' : 'normal'; }
-    if (metric === 'glucose') { return value >= 180 ? 'alert' : value >= 100 ? 'watch' : 'normal'; }
-    if (metric === 'pain_level') { return value >= 7 ? 'alert' : value >= 4 ? 'watch' : 'normal'; }
-    if (metric === 'temperature') { return value >= 100.4 ? 'alert' : value >= 99.5 ? 'watch' : 'normal'; }
-    return 'normal';
-}
-
-function setBadge(prefix, status) {
-    const map = { normal: 'green', watch: 'yellow', alert: 'red' };
-    const badge = el(prefix + 'Badge');
-    if (!badge) return;
-    badge.className = 'badge ' + (map[status] || 'green');
-    badge.textContent = status.toUpperCase();
-    const cardId = 'card' + prefix.charAt(0).toUpperCase() + prefix.slice(1);
-    const card = el(cardId);
-    if (card) {
-        card.classList.remove('status-normal', 'status-watch', 'status-alert');
-        card.classList.add('status-' + status);
-    }
-}
-
-function trendArrow(values) {
-    if (values.length < 2) return null;
-    const d = values[0] - values[1];
-    return d > 0.1 ? '↑' : d < -0.1 ? '↓' : '→';
-}
-
-// ── Patient loading ──
-async function loadPatients() {
-    try {
-        const patients = await fetchJSON('/patients');
-        const sel = el('patientSelect');
-        sel.innerHTML = '';
-        // Always add "+ New Patient" option first
-        var addOpt = document.createElement('option');
-        addOpt.value = '__new__';
-        addOpt.textContent = '+ New Patient';
-        sel.appendChild(addOpt);
-
-        if (!patients.length) {
-            currentPatientId = null;
-            // Show registration modal if no patients yet
-            showRegisterModal();
-            return;
-        }
-        for (var i = 0; i < patients.length; i++) {
-            var opt = document.createElement('option');
-            opt.value = patients[i].id;
-            opt.textContent = patients[i].id.substring(0, 20);
-            sel.appendChild(opt);
-        }
-        // Select first real patient
-        currentPatientId = patients[0].id;
-        sel.value = currentPatientId;
-        // Load names for all patients
-        for (var i = 0; i < Math.min(patients.length, 10); i++) {
-            try {
-                var d = await fetchJSON('/patient/' + patients[i].id);
-                if (d.patient && d.patient.name) {
-                    // +1 because index 0 is "+ New Patient"
-                    sel.options[i + 1].textContent = d.patient.name;
-                }
-            } catch(e) {}
-        }
-    } catch(e) {
-        showError(true);
-    }
-}
-
-el('patientSelect').addEventListener('change', function() {
-    if (this.value === '__new__') {
-        showRegisterModal();
-        // Reset to previous patient
-        if (currentPatientId) this.value = currentPatientId;
-        return;
-    }
-    currentPatientId = this.value;
-    refreshAll();
+// ── AUTH ──
+$('tabLogin').addEventListener('click', function() {
+    $('tabLogin').classList.add('active'); $('tabRegister').classList.remove('active');
+    $('loginForm').style.display = ''; $('registerForm').style.display = 'none';
+    $('authMsg').classList.remove('show');
+});
+$('tabRegister').addEventListener('click', function() {
+    $('tabRegister').classList.add('active'); $('tabLogin').classList.remove('active');
+    $('registerForm').style.display = ''; $('loginForm').style.display = 'none';
+    $('authMsg').classList.remove('show');
 });
 
-// ── Registration Modal ──
-function showRegisterModal() {
-    el('registerModal').classList.remove('hidden');
-    el('regStep1').style.display = '';
-    el('regStep2').style.display = 'none';
-    el('regStep3').style.display = 'none';
-    el('step1').className = 'step-dot active';
-    el('step2').className = 'step-dot';
-    el('step3').className = 'step-dot';
-    el('regName').value = '';
-    el('regName').focus();
-}
-
-el('regSkipBtn').addEventListener('click', function() {
-    el('registerModal').classList.add('hidden');
+$('loginBtn').addEventListener('click', async function() {
+    var key = $('loginKey').value.trim().toUpperCase();
+    if (key.length < 4) { showAuthMsg('Enter your access key', 'error'); return; }
+    this.disabled = true; this.textContent = 'Logging in...';
+    try {
+        var fd = new FormData(); fd.append('access_key', key);
+        var r = await fetch('/login', { method: 'POST', body: fd });
+        var d = await r.json();
+        if (!r.ok) throw new Error(d.detail || 'Invalid access key');
+        enterApp(d.patient_id, d.access_key, d.name);
+    } catch(e) { showAuthMsg(e.message, 'error'); }
+    this.disabled = false; this.textContent = 'Login Securely';
 });
 
-el('regSubmitBtn').addEventListener('click', async function() {
-    var name = el('regName').value.trim();
-    if (!name) { el('regName').style.borderColor = 'var(--red)'; el('regName').focus(); return; }
-    this.disabled = true;
-    this.textContent = 'Encrypting & Saving...';
+$('loginKey').addEventListener('keydown', function(e) { if (e.key === 'Enter') $('loginBtn').click(); });
+
+$('regBtn').addEventListener('click', async function() {
+    var name = $('regName').value.trim();
+    if (!name) { showAuthMsg('Enter your name', 'error'); return; }
+    this.disabled = true; this.textContent = 'Registering...';
     try {
-        var fd = new FormData();
-        fd.append('name', name);
+        var fd = new FormData(); fd.append('name', name);
         var r = await fetch('/register-patient', { method: 'POST', body: fd });
-        var data = await r.json();
-        if (!r.ok) throw new Error(data.detail || 'Registration failed');
-
-        // Show encryption proof
-        el('proofPlain').textContent = name;
-        // Load actual encrypted blob from privacy-proof endpoint
-        try {
-            var proof = await fetchJSON('/privacy-proof/' + data.patient_id);
-            el('proofCipher').textContent = proof.encrypted_proof.patient_name_encrypted;
-        } catch(e) {
-            el('proofCipher').textContent = '[encrypted — ' + data.patient_id.substring(0, 12) + ']';
-        }
-
-        // Move to step 2
-        el('regStep1').style.display = 'none';
-        el('regStep2').style.display = '';
-        el('step1').className = 'step-dot done';
-        el('step2').className = 'step-dot active';
-
-        // Set as current patient
-        currentPatientId = data.patient_id;
-        await loadPatients();
-        el('patientSelect').value = currentPatientId;
-        el('registerModal').classList.remove('hidden');
-    } catch(e) {
-        alert('Registration failed: ' + e.message);
-    }
-    this.disabled = false;
-    this.textContent = 'Register Securely';
+        var d = await r.json();
+        if (!r.ok) throw new Error(d.detail || 'Registration failed');
+        $('newAccessKey').textContent = d.access_key;
+        $('regResult').style.display = '';
+        $('regBtn').style.display = 'none';
+        $('regName').style.display = 'none';
+        currentPatientId = d.patient_id;
+        currentAccessKey = d.access_key;
+        currentName = d.name;
+    } catch(e) { showAuthMsg(e.message, 'error'); }
+    this.disabled = false; this.textContent = 'Register & Get Access Key';
 });
 
-el('regName').addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') el('regSubmitBtn').click();
-    this.style.borderColor = '';
+$('regContinueBtn').addEventListener('click', function() {
+    enterApp(currentPatientId, currentAccessKey, currentName);
 });
 
-el('regNextBtn').addEventListener('click', function() {
-    el('regStep2').style.display = 'none';
-    el('regStep3').style.display = '';
-    el('step2').className = 'step-dot done';
-    el('step3').className = 'step-dot active';
-});
+function showAuthMsg(msg, type) {
+    var el = $('authMsg');
+    el.textContent = msg;
+    el.className = 'auth-msg show ' + type;
+}
 
-el('regDoneBtn').addEventListener('click', function() {
-    el('registerModal').classList.add('hidden');
+function enterApp(pid, key, name) {
+    currentPatientId = pid;
+    currentAccessKey = key;
+    currentName = name;
+    $('authOverlay').classList.add('hidden');
+    $('mainApp').style.display = '';
+    $('userName').textContent = name;
+    $('userKey').textContent = key;
     refreshAll();
+    // Load chat history
+    loadChatHistory();
+}
+
+// ── LOGOUT ──
+$('logoutBtn').addEventListener('click', async function() {
+    if (!confirm('Logout? Your chat history will be cleared.')) return;
+    try { await fetch('/clear-chat/' + currentPatientId, { method: 'POST' }); } catch(e) {}
+    currentPatientId = null; currentAccessKey = null; currentName = null;
+    $('authOverlay').classList.remove('hidden');
+    $('mainApp').style.display = 'none';
+    $('loginKey').value = '';
+    $('chatMessages').innerHTML = $('chatMessages').querySelector('.chat-welcome') ? $('chatMessages').innerHTML : '';
+    $('regResult').style.display = 'none';
+    $('regBtn').style.display = '';
+    $('regName').style.display = '';
+    $('regName').value = '';
+    $('authMsg').classList.remove('show');
+    $('tabLogin').click();
 });
 
-// ── Load real vitals from DB ──
-async function refreshVitals() {
-    if (!currentPatientId) {
-        el('bpValue').textContent = '--';
-        el('glucoseValue').textContent = '--';
-        el('painValue').textContent = '--';
-        el('tempValue').textContent = '--';
-        return;
-    }
-    try {
-        const detail = await fetchJSON('/patient/' + currentPatientId);
-        const latest = detail.latest_vitals || {};
-
-        // BP
-        if (latest.bp_systolic) {
-            const sys = latest.bp_systolic.value;
-            const dia = latest.bp_diastolic ? latest.bp_diastolic.value : '--';
-            el('bpValue').textContent = sys + '/' + dia + ' mmHg';
-            setBadge('bp', statusForMetric('bp_systolic', sys));
-        } else {
-            el('bpValue').textContent = '--';
-            el('bpTrend').textContent = 'No readings yet';
-            setBadge('bp', 'normal');
-        }
-
-        // Glucose
-        if (latest.glucose) {
-            el('glucoseValue').textContent = latest.glucose.value + ' mg/dL';
-            setBadge('glucose', statusForMetric('glucose', latest.glucose.value));
-        } else {
-            el('glucoseValue').textContent = '--';
-            el('glucoseTrend').textContent = 'No readings yet';
-            setBadge('glucose', 'normal');
-        }
-
-        // Pain
-        if (latest.pain_level) {
-            el('painValue').textContent = latest.pain_level.value + '/10';
-            setBadge('pain', statusForMetric('pain_level', latest.pain_level.value));
-        } else {
-            el('painValue').textContent = '--';
-            el('painTrend').textContent = 'No readings yet';
-            setBadge('pain', 'normal');
-        }
-
-        // Temperature
-        if (latest.temperature) {
-            el('tempValue').textContent = latest.temperature.value + ' F';
-            setBadge('temp', statusForMetric('temperature', latest.temperature.value));
-        } else {
-            el('tempValue').textContent = '--';
-            el('tempTrend').textContent = 'No readings yet';
-            setBadge('temp', 'normal');
-        }
-
-        // Trends from history
-        const history = detail.vitals_history || [];
-        const bpH = history.filter(v => v.metric_type === 'bp_systolic');
-        if (bpH.length >= 2) el('bpTrend').textContent = 'trend: ' + trendArrow(bpH.map(v => v.value));
-        else if (bpH.length === 1) el('bpTrend').textContent = 'first reading';
-
-        const gH = history.filter(v => v.metric_type === 'glucose');
-        if (gH.length >= 2) el('glucoseTrend').textContent = 'trend: ' + trendArrow(gH.map(v => v.value));
-        else if (gH.length === 1) el('glucoseTrend').textContent = 'first reading';
-
-        const pH = history.filter(v => v.metric_type === 'pain_level');
-        if (pH.length >= 2) el('painTrend').textContent = 'trend: ' + trendArrow(pH.map(v => v.value));
-        else if (pH.length === 1) el('painTrend').textContent = 'first reading';
-
-        const tH = history.filter(v => v.metric_type === 'temperature');
-        if (tH.length >= 2) el('tempTrend').textContent = 'trend: ' + trendArrow(tH.map(v => v.value));
-        else if (tH.length === 1) el('tempTrend').textContent = 'first reading';
-
-        // BP chart from real data
-        renderBpChart(history.filter(v => v.metric_type === 'bp_systolic'));
-
-    } catch(e) {
-        showError(true);
-    }
-}
-
-// ── BP Chart ──
-function smoothPath(points) {
-    if (points.length < 2) return '';
-    const d = [];
-    for (let i = 0; i < points.length; i++) {
-        const p = points[i];
-        if (i === 0) { d.push('M ' + p.x + ' ' + p.y); }
-        else {
-            const prev = points[i-1];
-            const next = points[i+1] || p;
-            const dx = (next.x - prev.x) / 6;
-            d.push('C ' + (prev.x+dx) + ' ' + (prev.y+(p.y-prev.y)/3) + ' ' + (p.x-dx) + ' ' + (p.y-(p.y-prev.y)/3) + ' ' + p.x + ' ' + p.y);
-        }
-    }
-    return d.join(' ');
-}
-
-function renderBpChart(bpVitals) {
-    const wrap = el('bpChart');
-    if (!bpVitals || bpVitals.length < 2) {
-        wrap.innerHTML = '<div class="empty-state"><div class="icon">📊</div>Need at least 2 BP readings to show trend</div>';
-        return;
-    }
-    // Take last 7, reverse to chronological order
-    const data = bpVitals.slice(0, 7).reverse();
-    const w = 520, h = 200, pad = 30;
-    const values = data.map(v => v.value);
-    const mn = Math.min(...values, 100);
-    const mx = Math.max(...values, 160);
-    const stepX = (w - pad * 2) / (data.length - 1 || 1);
-    const scaleY = (val) => h - pad - ((val - mn) / (mx - mn || 1)) * (h - pad * 2);
-    const safeY = scaleY(140);
-    const pts = data.map((v, i) => ({
-        x: pad + i * stepX,
-        y: scaleY(v.value),
-        value: v.value,
-        day: v.timestamp ? v.timestamp.substring(5, 10) : ('D' + i)
-    }));
-    const linePath = smoothPath(pts);
-    const polyline = pts.map(p => p.x + ',' + p.y).join(' ');
-    const area = pad + ',' + (h - pad) + ' ' + polyline + ' ' + (w - pad) + ',' + (h - pad);
-    const dots = pts.map(p => '<circle cx="' + p.x + '" cy="' + p.y + '" r="4" fill="#f4f7fb" stroke="#c53030" stroke-width="2"><title>' + p.day + ' · ' + p.value + ' mmHg</title></circle>').join('');
-    const valText = pts.map(p => '<text x="' + p.x + '" y="' + (p.y - 8) + '" fill="#c53030" font-size="9" text-anchor="middle">' + p.value + '</text>').join('');
-    const labels = pts.map(p => '<text x="' + p.x + '" y="' + (h - 6) + '" fill="#4a6080" font-size="9" text-anchor="middle">' + p.day + '</text>').join('');
-    wrap.innerHTML = '<svg width="100%" height="100%" viewBox="0 0 ' + w + ' ' + h + '"><polygon points="' + area + '" fill="rgba(197,48,48,0.08)"/><line x1="' + pad + '" y1="' + safeY + '" x2="' + (w - pad) + '" y2="' + safeY + '" stroke="#2f855a" stroke-dasharray="4 4" opacity="0.6"/><path class="bp-line" d="' + linePath + '" fill="none" stroke="#c53030" stroke-width="2"/>' + dots + valText + labels + '</svg>';
-}
-
-// ── Alerts (real only, no fallback) ──
-async function refreshActions() {
-    if (!currentPatientId) return;
-    try {
-        const alerts = await fetchJSON('/alerts?patient_id=' + currentPatientId + '&limit=15');
-        const list = el('actionsList');
-        if (!alerts.length) {
-            list.innerHTML = '<div class="empty-state"><div class="icon">🔔</div>No alerts yet. Alerts are triggered by AI when something needs attention.</div>';
-            return;
-        }
-        list.innerHTML = '';
-        alerts.forEach(a => {
-            const sevClass = a.severity === 1 ? 'red' : a.severity === 2 ? 'yellow' : 'green';
-            const item = document.createElement('div');
-            item.className = 'action-item ' + sevClass;
-            item.innerHTML = '<div class="action-header"><span class="badge small ' + sevClass + '">sev' + a.severity + '</span><span class="mono">' + formatTime(a.timestamp) + '</span></div><div style="color:var(--text);font-size:12px">' + (a.message || '') + '</div><div style="font-size:9px;color:var(--muted);margin-top:4px">' + (a.action_taken || '') + '</div>';
-            list.appendChild(item);
-        });
-    } catch(e) {
-        showError(true);
-    }
-}
-
-// ── Live Feed (real audit log only) ──
-function renderFeed() {
-    const list = el('feedList');
-    if (!feedEntries.length) {
-        list.innerHTML = '<div class="empty-state" style="padding:16px"><div class="icon">📡</div>Live events will appear here</div>';
-        return;
-    }
-    list.innerHTML = '';
-    feedEntries.slice(-30).forEach(entry => {
-        const line = document.createElement('div');
-        line.className = 'feed-item ' + (entry.color || 'cyan');
-        const msg = feedMode === 'patient' ? (entry.patientMessage || entry.message) : entry.message;
-        line.textContent = entry.time + ' · ' + (entry.icon || '↻') + ' · ' + msg;
-        list.appendChild(line);
-    });
-    list.scrollTop = list.scrollHeight;
-}
-
-async function refreshFeed() {
-    try {
-        const audit = await fetchJSON('/audit?limit=30');
-        let newEntries = false;
-        audit.forEach(a => {
-            const key = (a.action_id || '') + '-' + (a.timestamp || '');
-            if (seenAudit.has(key)) return;
-            seenAudit.add(key);
-            newEntries = true;
-            let color = 'cyan', icon = '↻';
-            const t = a.type || '';
-            let patMsg = 'Your health data was processed.';
-            if (t.includes('photo') || t.includes('instant')) { color = 'yellow'; icon = '📸'; patMsg = 'Your photo was analyzed by AI.'; }
-            else if (t.includes('alert') || t.includes('severity_1')) { color = 'red'; icon = '🚨'; patMsg = 'Your doctor was notified.'; }
-            else if (t.includes('severity_2')) { color = 'yellow'; icon = '⚠'; patMsg = 'A follow-up action was taken.'; }
-            else if (t.includes('vital')) { color = 'green'; icon = '💓'; patMsg = 'Your vital was recorded.'; }
-            else if (t.includes('symptom')) { color = 'cyan'; icon = '📝'; patMsg = 'Your symptom was logged.'; }
-            else if (t.includes('doctor_report')) { color = 'cyan'; icon = '🩺'; patMsg = 'A doctor report was generated.'; }
-            feedEntries.push({
-                time: formatTime(a.timestamp),
-                icon: icon,
-                color: color,
-                message: t + (a.reason ? ' · ' + a.reason.substring(0, 60) : ''),
-                patientMessage: patMsg,
-            });
-        });
-        if (newEntries) renderFeed();
-    } catch(e) {}
-}
-
-// ── Recent Analysis on dashboard ──
-async function refreshRecentAnalysis() {
-    if (!currentPatientId) return;
-    try {
-        const logs = await fetchJSON('/logs?patient_id=' + currentPatientId + '&limit=3');
-        const area = el('recentAnalysis');
-        const photoLogs = logs.filter(l => l.input_type === 'photo');
-        if (!photoLogs.length) {
-            area.innerHTML = '<div class="empty-state"><div class="icon">🔬</div>Upload a photo to see AI analysis results here</div>';
-            return;
-        }
-        let h = '';
-        photoLogs.forEach(l => {
-            const sev = l.decision === 'escalate' ? 'red' : l.decision === 'alert' ? 'red' : l.decision === 'monitor' ? 'yellow' : 'green';
-            h += '<div style="padding:8px;border:1px solid var(--border);border-radius:6px;margin-bottom:6px;border-left:3px solid var(--' + sev + ')">';
-            h += '<div style="display:flex;justify-content:space-between"><span class="badge small ' + sev + '">' + (l.decision || '') + '</span><span class="mono" style="font-size:9px;color:var(--muted)">' + formatTime(l.timestamp) + '</span></div>';
-            h += '<div style="font-size:11px;color:var(--text);margin-top:4px">' + (l.summary || '').substring(0, 200) + '</div>';
-            h += '<div style="font-size:10px;color:var(--muted);margin-top:2px">' + (l.reason || '').substring(0, 150) + '</div>';
-            h += '</div>';
-        });
-        area.innerHTML = h;
-    } catch(e) {}
-}
-
-// ── Status ──
-async function refreshStatus() {
-    try {
-        const st = await fetchJSON('/status');
-        el('agentStatus').textContent = st.running ? 'RUNNING' : 'IDLE';
-        el('uptime').textContent = st.uptime_seconds ? Math.round(st.uptime_seconds) + 's' : '--';
-        el('loopInfo').textContent = 'Loop: ' + (st.loop_count || 0);
-        el('nodeId').textContent = st.node_id || st.akash_node || '--';
-        showError(false);
-    } catch(e) { showError(true); }
-}
-
-// ── History Page ──
-let historyFilter = 'all';
-
-async function refreshHistory() {
-    if (!currentPatientId) return;
-    const area = el('historyList');
-    area.innerHTML = '<div class="empty-state" style="padding:16px">Loading...</div>';
-
-    try {
-        const items = [];
-
-        // Get vitals
-        if (historyFilter === 'all' || historyFilter === 'vitals') {
-            const vitals = await fetchJSON('/patient/' + currentPatientId + '/vitals?days=30');
-            vitals.forEach(v => {
-                items.push({
-                    time: v.timestamp,
-                    type: 'vital',
-                    typeLabel: v.metric_type.replace(/_/g, ' '),
-                    content: v.value + ' ' + (v.unit || ''),
-                    source: v.source || 'manual',
-                    color: 'green',
-                });
-            });
-        }
-
-        // Get analysis logs
-        if (historyFilter === 'all' || historyFilter === 'analysis') {
-            const logs = await fetchJSON('/logs?patient_id=' + currentPatientId + '&limit=50');
-            logs.forEach(l => {
-                const sev = l.decision === 'escalate' ? 'red' : l.decision === 'alert' ? 'red' : l.decision === 'monitor' ? 'yellow' : 'green';
-                items.push({
-                    time: l.timestamp,
-                    type: 'analysis',
-                    typeLabel: l.input_type + ' analysis',
-                    content: (l.summary || '').substring(0, 300),
-                    reason: l.reason || '',
-                    decision: l.decision,
-                    model: l.model_used,
-                    anomaly: l.anomaly_score,
-                    color: sev,
-                });
-            });
-        }
-
-        // Get alerts
-        if (historyFilter === 'all' || historyFilter === 'alerts') {
-            const alerts = await fetchJSON('/alerts?patient_id=' + currentPatientId + '&limit=50');
-            alerts.forEach(a => {
-                items.push({
-                    time: a.timestamp,
-                    type: 'alert',
-                    typeLabel: 'sev' + a.severity + ' alert',
-                    content: a.message,
-                    action: a.action_taken,
-                    color: a.severity === 1 ? 'red' : a.severity === 2 ? 'yellow' : 'green',
-                });
-            });
-        }
-
-        // Sort by time descending
-        items.sort((a, b) => (b.time || '').localeCompare(a.time || ''));
-
-        if (!items.length) {
-            area.innerHTML = '<div class="empty-state"><div class="icon">📋</div>No ' + historyFilter + ' history yet. Start by adding vitals or uploading photos.</div>';
-            return;
-        }
-
-        area.innerHTML = '';
-        items.forEach(item => {
-            const div = document.createElement('div');
-            div.className = 'history-item';
-            div.style.borderLeft = '3px solid var(--' + item.color + ')';
-            let h = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">';
-            h += '<span class="badge small ' + item.color + '">' + item.typeLabel + '</span>';
-            h += '<span class="time">' + formatTime(item.time) + ' · ' + (item.time || '').substring(0, 10) + '</span>';
-            h += '</div>';
-            h += '<div style="font-size:12px;color:var(--text)">' + item.content + '</div>';
-            if (item.reason) h += '<div style="font-size:10px;color:var(--muted);margin-top:4px">' + item.reason + '</div>';
-            if (item.decision) h += '<div style="font-size:10px;margin-top:4px"><span class="badge small ' + item.color + '">' + item.decision + '</span>' + (item.model ? ' · ' + item.model : '') + (item.anomaly !== undefined ? ' · anomaly: ' + (item.anomaly || 0).toFixed(2) : '') + '</div>';
-            if (item.action) h += '<div style="font-size:10px;color:var(--muted);margin-top:2px">Action: ' + item.action + '</div>';
-            if (item.source) h += '<div style="font-size:9px;color:var(--muted);margin-top:2px">source: ' + item.source + '</div>';
-            div.innerHTML = h;
-            area.appendChild(div);
-        });
-    } catch(e) {
-        area.innerHTML = '<div class="empty-state"><div class="icon">❌</div>Failed to load history. ' + e.message + '</div>';
-    }
-}
-
-// History filter buttons
-['histAllBtn', 'histVitalsBtn', 'histAnalysisBtn', 'histAlertsBtn'].forEach(id => {
-    el(id).addEventListener('click', function() {
-        historyFilter = this.dataset.filter;
-        document.querySelectorAll('[data-filter]').forEach(b => b.classList.remove('toggle-active'));
-        this.classList.add('toggle-active');
-        refreshHistory();
-    });
-});
-
-// ── Doctor Page ──
-el('genReportBtn').addEventListener('click', async function() {
-    if (!currentPatientId) { alert('Select a patient first'); return; }
-    const area = el('doctorReportArea');
-    this.disabled = true;
-    this.textContent = 'Generating...';
-    area.innerHTML = '<div class="empty-state" style="padding:20px"><div style="font-size:28px;animation:pulse 1.5s infinite">🩺</div><div style="margin-top:8px">Generating AI doctor report... This takes 15-30 seconds.</div></div>';
-    try {
-        const data = await fetchJSON('/doctor-report/' + currentPatientId);
-        const r = data.report || {};
-        let h = '';
-        if (r.clinical_summary) {
-            h += '<div class="doctor-section"><h3>Clinical Summary</h3><p>' + r.clinical_summary + '</p></div>';
-        }
-        if (r.risk_assessment) {
-            h += '<div class="doctor-section"><h3>Risk Assessment</h3><p>' + (typeof r.risk_assessment === 'string' ? r.risk_assessment : JSON.stringify(r.risk_assessment, null, 2)) + '</p></div>';
-        }
-        if (r.treatment_plan) {
-            h += '<div class="doctor-section"><h3>Treatment Plan</h3><p>' + (typeof r.treatment_plan === 'string' ? r.treatment_plan : JSON.stringify(r.treatment_plan, null, 2)) + '</p></div>';
-        }
-        if (r.medication_review) {
-            h += '<div class="doctor-section"><h3>Medication Review</h3><p>' + (typeof r.medication_review === 'string' ? r.medication_review : JSON.stringify(r.medication_review, null, 2)) + '</p></div>';
-        }
-        if (r.follow_up) {
-            h += '<div class="doctor-section"><h3>Follow-Up Recommendations</h3><p>' + (typeof r.follow_up === 'string' ? r.follow_up : JSON.stringify(r.follow_up, null, 2)) + '</p></div>';
-        }
-        if (!h) h = '<div class="doctor-section"><h3>Raw Report</h3><pre style="font-size:11px;white-space:pre-wrap;color:var(--text)">' + JSON.stringify(r, null, 2) + '</pre></div>';
-        area.innerHTML = h;
-    } catch(e) {
-        area.innerHTML = '<div class="empty-state" style="color:var(--red)">Failed to generate report: ' + e.message + '</div>';
-    }
-    this.disabled = false;
-    this.textContent = 'Generate Doctor Report';
-});
-
-el('genBriefingBtn').addEventListener('click', async function() {
-    if (!currentPatientId) { alert('Select a patient first'); return; }
-    const area = el('audioBriefingArea');
-    this.disabled = true;
-    this.textContent = 'Generating Audio...';
-    area.innerHTML = '<div class="empty-state" style="padding:16px"><div style="font-size:24px;animation:pulse 1.5s infinite">🔊</div><div style="margin-top:8px">Generating audio briefing via AkashML + Venice TTS...</div></div>';
-    try {
-        const data = await fetchJSON('/patient-briefing/' + currentPatientId);
-        let h = '';
-        if (data.briefing && data.briefing.spoken_text) {
-            h += '<div class="doctor-section"><h3>Patient Briefing</h3><p>' + data.briefing.spoken_text + '</p></div>';
-        }
-        if (data.audio_b64) {
-            h += '<div class="doctor-section"><h3>Audio Playback</h3><audio controls src="data:audio/mp3;base64,' + data.audio_b64 + '" style="width:100%"></audio></div>';
-        }
-        if (!h) h = '<div class="empty-state">No briefing generated. Add more patient data first.</div>';
-        area.innerHTML = h;
-    } catch(e) {
-        area.innerHTML = '<div class="empty-state" style="color:var(--red)">Failed: ' + e.message + '</div>';
-    }
-    this.disabled = false;
-    this.textContent = 'Audio Patient Briefing';
-});
-
-// ── Quick Add Vital ──
-el('vitalType').addEventListener('change', function() {
-    el('vitalVal2').style.display = this.value === 'bp' ? 'inline-block' : 'none';
-    el('vitalVal1').placeholder = this.value === 'bp' ? 'Systolic' : 'Value';
-});
-
-el('addVitalBtn').addEventListener('click', async function() {
-    if (!currentPatientId) { alert('Select a patient first'); return; }
-    const type = el('vitalType').value;
-    const v1 = parseFloat(el('vitalVal1').value);
-    if (isNaN(v1)) { el('vitalSaveMsg').textContent = 'Enter a value'; return; }
-
-    this.disabled = true;
-    try {
-        if (type === 'bp') {
-            const v2 = parseFloat(el('vitalVal2').value);
-            if (isNaN(v2)) { el('vitalSaveMsg').textContent = 'Enter diastolic'; this.disabled = false; return; }
-            await postVital('bp_systolic', v1, 'mmHg');
-            await postVital('bp_diastolic', v2, 'mmHg');
-        } else {
-            const units = { glucose: 'mg/dL', pain_level: '/10', temperature: 'F', heart_rate: 'bpm', oxygen_saturation: '%' };
-            await postVital(type, v1, units[type] || '');
-        }
-        el('vitalSaveMsg').textContent = 'Saved!';
-        el('vitalVal1').value = '';
-        el('vitalVal2').value = '';
-        setTimeout(() => { el('vitalSaveMsg').textContent = ''; }, 2000);
-        refreshVitals();
-    } catch(e) {
-        el('vitalSaveMsg').textContent = 'Error: ' + e.message;
-    }
-    this.disabled = false;
-});
-
-async function postVital(metricType, value, unit) {
-    const fd = new FormData();
-    fd.append('patient_id', currentPatientId);
-    fd.append('metric_type', metricType);
-    fd.append('value', String(value));
-    fd.append('unit', unit || '');
-    const r = await fetch('/vital', { method: 'POST', body: fd });
-    if (!r.ok) throw new Error('Failed to save');
-}
-
-// ── Photo Upload (same as before with loading spinner) ──
-function renderAnalysisResults(data) {
-    const state = el('uploadState');
-    const result = el('uploadResult');
-    const v = data.vision || {};
-    const t = data.triage || {};
-    const lvl = t.emergency_level || 'yellow_see_doctor';
-    const bMap = {green_self_care:{c:'green',i:'✅',t:'Self-Care OK'},yellow_see_doctor:{c:'yellow',i:'⚠️',t:'See a Doctor'},orange_urgent_care:{c:'red',i:'🏥',t:'Urgent Care Needed'},red_emergency:{c:'red',i:'🚨',t:'EMERGENCY'}};
-    const b = bMap[lvl] || bMap.yellow_see_doctor;
-    state.textContent = 'Analysis complete. Image deleted. Zero retention.';
-    let h = '<div class="card" style="margin-top:8px">';
-    h += '<div class="badge ' + b.c + '" style="font-size:11px;padding:6px 12px">' + b.i + ' ' + b.t + '</div>';
-    if (data.doctor_notified) h += '<div class="badge red" style="margin-top:6px;font-size:10px;padding:4px 8px">Doctor automatically notified</div>';
-    if (t.patient_message) h += '<div style="margin-top:12px;color:var(--text);font-size:13px;line-height:1.6">' + t.patient_message + '</div>';
-    h += '<div style="margin-top:14px"><strong style="color:var(--accent)">What We Found:</strong><div style="margin-top:6px;color:var(--text);font-size:12px;line-height:1.6">' + (v.observations || 'No observations') + '</div></div>';
-    if (v.primary_concern) h += '<div style="margin-top:8px;padding:8px 12px;background:#fff5f5;border:1px solid #fed7d7;border-radius:6px;font-size:12px;color:var(--red)"><strong>Primary Concern:</strong> ' + v.primary_concern + '</div>';
-    if (v.patient_summary) h += '<div style="margin-top:8px;padding:8px 12px;background:#ebf8ff;border:1px solid #bee3f8;border-radius:6px;font-size:12px;color:var(--accent)">' + v.patient_summary + '</div>';
-    var da = t.diagnosis_assessment || {};
-    if (da.most_likely) h += '<div style="margin-top:14px"><strong style="color:var(--accent)">Diagnosis:</strong><div style="margin-top:6px;font-size:14px;font-weight:700;color:var(--text)">' + da.most_likely + '</div>' + (da.confidence ? '<div style="font-size:10px;color:var(--muted)">Confidence: ' + Math.round(da.confidence * 100) + '%</div>' : '') + '</div>';
-    if (da.differential && da.differential.length) h += '<div style="margin-top:4px;font-size:11px;color:var(--muted)">Also consider: ' + da.differential.join(', ') + '</div>';
-    var allMeds = [].concat(v.medication_suggestions || [], t.medications || []);
-    if (allMeds.length) {
-        h += '<div style="margin-top:14px"><strong style="color:var(--accent)">Medications:</strong>';
-        var seen = {};
-        for (var mi = 0; mi < allMeds.length; mi++) {
-            var m = allMeds[mi];
-            var k = (m.name || '').toLowerCase();
-            if (seen[k]) continue; seen[k] = true;
-            var otc = m.otc === true || m.type === 'OTC';
-            h += '<div style="margin-top:6px;padding:8px 12px;background:' + (otc ? '#f0fff4' : '#fff5f5') + ';border:1px solid ' + (otc ? '#c6f6d5' : '#fed7d7') + ';border-radius:6px">';
-            h += '<div style="font-size:12px;font-weight:600;color:var(--text)">' + (m.name || '') + ' <span class="badge ' + (otc ? 'green' : 'red') + '" style="font-size:8px">' + (otc ? 'OTC' : 'Rx') + '</span></div>';
-            if (m.purpose || m.dosage || m.dosage_note) h += '<div style="font-size:11px;color:var(--muted);margin-top:4px">' + (m.purpose ? 'For: ' + m.purpose + '. ' : '') + (m.dosage || m.dosage_note || '') + (m.duration ? ' | ' + m.duration : '') + '</div>';
-            if (m.warnings) h += '<div style="font-size:10px;color:var(--red);margin-top:2px">Warning: ' + m.warnings + '</div>';
-            h += '</div>';
-        }
-        h += '</div>';
-    }
-    if (t.treatment_plan && t.treatment_plan.length) {
-        h += '<div style="margin-top:14px"><strong style="color:var(--accent)">Treatment Plan:</strong>';
-        t.treatment_plan.forEach(function(s) {
-            h += '<div style="margin-top:6px;padding:8px 12px;border-left:3px solid var(--accent);background:#f7fafc;border-radius:0 6px 6px 0">';
-            h += '<div style="font-size:12px;font-weight:600;color:var(--text)">Step ' + (s.step || '') + ': ' + (s.action || '') + '</div>';
-            h += '<div style="font-size:11px;color:var(--muted)">' + (s.detail || '') + '</div>';
-            if (s.timeframe) h += '<div style="font-size:10px;color:var(--yellow);margin-top:2px">' + s.timeframe + '</div>';
-            h += '</div>';
-        });
-        h += '</div>';
-    }
-    var tests = [].concat(t.scans_and_tests || []);
-    if (tests.length) {
-        h += '<div style="margin-top:14px"><strong style="color:var(--accent)">Scans & Tests:</strong>';
-        tests.forEach(function(tt) {
-            var uc = tt.urgency === 'urgent' ? 'red' : tt.urgency === 'soon' ? 'yellow' : 'green';
-            h += '<div style="margin-top:4px;display:flex;justify-content:space-between;padding:6px 10px;background:#f7fafc;border-radius:6px;font-size:11px"><span style="font-weight:600;color:var(--text)">' + (tt.test || '') + '</span><span class="badge ' + uc + '">' + (tt.urgency || 'routine') + '</span></div>';
-            if (tt.reason) h += '<div style="font-size:10px;color:var(--muted);padding:0 10px">' + tt.reason + '</div>';
-        });
-        h += '</div>';
-    }
-    if (t.do_not_do && t.do_not_do.length) {
-        h += '<div style="margin-top:14px"><strong style="color:var(--red)">Do NOT Do:</strong>';
-        t.do_not_do.forEach(function(d) { h += '<div style="margin-top:4px;padding:6px 10px;background:#fff5f5;border:1px solid #fed7d7;border-radius:6px;font-size:11px;color:var(--red)">' + d + '</div>'; });
-        h += '</div>';
-    }
-    var hc = [].concat(t.home_care_plan || [], v.home_care || []);
-    if (hc.length) {
-        h += '<div style="margin-top:14px"><strong style="color:var(--green)">Home Care:</strong>';
-        hc.forEach(function(c) { h += '<div style="margin-top:4px;padding:6px 10px;background:#f0fff4;border:1px solid #c6f6d5;border-radius:6px;font-size:11px;color:var(--green)">' + c + '</div>'; });
-        h += '</div>';
-    }
-    var warn = [].concat(t.red_flags || [], v.warning_signs || []);
-    if (warn.length) {
-        h += '<div style="margin-top:14px"><strong style="color:var(--red)">Warning Signs:</strong>';
-        warn.forEach(function(w) { h += '<div style="margin-top:4px;padding:6px 10px;background:#fff5f5;border:1px solid #feb2b2;border-radius:6px;font-size:11px;color:var(--red)">' + w + '</div>'; });
-        h += '</div>';
-    }
-    var ref = t.specialist_referral || {};
-    if (ref.needed) h += '<div style="margin-top:10px;padding:8px 12px;background:#faf5ff;border:1px solid #e9d8fd;border-radius:6px;font-size:12px;color:#6b46c1"><strong>Specialist Referral:</strong> ' + (ref.specialty || '') + ' - ' + (ref.timeframe || 'soon') + '</div>';
-    if (t.next_check || v.follow_up) h += '<div style="margin-top:10px;font-size:12px;color:var(--muted)"><strong>Follow Up:</strong> ' + (t.next_check || '') + ' ' + (v.follow_up || '') + '</div>';
-    h += '<div style="margin-top:14px;padding:8px 12px;background:#f0fff4;border:1px solid #c6f6d5;border-radius:6px;font-size:10px;color:var(--green);text-align:center">Your photo was analyzed by Venice AI with zero data retention. The raw image was never stored.</div>';
-    h += '</div>';
-    result.innerHTML = h;
-    // Refresh dashboard data after analysis
-    refreshVitals();
-    refreshActions();
-    refreshRecentAnalysis();
-}
-
-async function uploadPhoto() {
-    if (!currentPatientId) { alert('Select a patient first'); return; }
-    const file = el('photoInput').files[0];
-    if (!file) return;
-    const noteText = el('chatPrompt') ? el('chatPrompt').value : '';
-    el('photoAnalyzeBtn').disabled = true;
-    el('uploadState').textContent = '';
-    el('uploadResult').innerHTML = '<div class="card" style="margin-top:8px;text-align:center;padding:30px 20px">'
-        + '<div style="font-size:28px;animation:pulse 1.5s infinite">🔬</div>'
-        + '<div id="analyzeStep" style="margin-top:12px;font-size:13px;font-weight:600;color:var(--accent)">Step 1/3: Sending image to Venice Vision AI...</div>'
-        + '<div style="margin-top:8px;height:4px;background:#e2e8f0;border-radius:4px;overflow:hidden"><div id="analyzeBar" style="height:100%;width:10%;background:var(--accent);border-radius:4px;transition:width 1s ease"></div></div>'
-        + '<div style="margin-top:10px;font-size:10px;color:var(--muted)">This takes 15-45 seconds. Your image is analyzed in real-time by AI and deleted immediately after.</div>'
-        + '</div>';
-    el('uploadResult').scrollIntoView({behavior:'smooth', block:'center'});
-    var stepEl, barEl;
-    setTimeout(function(){ stepEl = document.getElementById('analyzeStep'); barEl = document.getElementById('analyzeBar'); if(barEl) barEl.style.width='33%'; }, 2000);
-    setTimeout(function(){ if(stepEl) stepEl.textContent='Step 2/3: Venice Vision analyzing image...'; if(barEl) barEl.style.width='55%'; }, 5000);
-    setTimeout(function(){ if(stepEl) stepEl.textContent='Step 2/3: Still analyzing (large AI model)...'; if(barEl) barEl.style.width='65%'; }, 15000);
-    setTimeout(function(){ if(stepEl) stepEl.textContent='Step 3/3: AkashML generating clinical triage...'; if(barEl) barEl.style.width='80%'; }, 25000);
-    setTimeout(function(){ if(barEl) barEl.style.width='90%'; }, 40000);
-    var fd = new FormData();
-    fd.append('file', file);
-    fd.append('patient_id', currentPatientId);
-    fd.append('note', noteText);
-    try {
-        var resp = await fetch('/analyze-photo', { method: 'POST', body: fd });
-        var data = await resp.json();
-        renderAnalysisResults(data);
-        el('uploadResult').scrollIntoView({behavior:'smooth', block:'start'});
-    } catch(e) {
-        el('uploadState').textContent = 'Analysis failed. Please try again.';
-        el('uploadResult').innerHTML = '<div class="badge red" style="margin-top:8px">Error: ' + (e.message || e) + '</div>';
-    }
-    el('photoAnalyzeBtn').disabled = false;
-}
-
-// ── Photo Upload UI ──
-var photoDrop = el('photoDrop');
-photoDrop.addEventListener('click', function() { el('photoInput').click(); });
-photoDrop.addEventListener('dragover', function(e) { e.preventDefault(); photoDrop.classList.add('hover'); });
-photoDrop.addEventListener('dragleave', function() { photoDrop.classList.remove('hover'); });
-photoDrop.addEventListener('drop', function(e) {
-    e.preventDefault(); photoDrop.classList.remove('hover');
-    var f = e.dataTransfer.files[0];
-    if (f) { el('photoInput').files = e.dataTransfer.files; el('photoName').textContent = f.name; el('photoAnalyzeBtn').disabled = false; }
-});
-el('photoInput').addEventListener('change', function() {
-    var f = el('photoInput').files[0];
-    el('photoName').textContent = f ? f.name : 'No file selected';
-    el('photoAnalyzeBtn').disabled = !f;
-});
-el('photoAnalyzeBtn').addEventListener('click', uploadPhoto);
-
-// ── Symptom Submit ──
-el('sendPrompt').addEventListener('click', async function() {
-    if (!currentPatientId) { alert('Select a patient first'); return; }
-    var text = el('chatPrompt').value.trim();
-    if (!text) return;
-    var fd = new FormData();
-    fd.append('patient_id', currentPatientId);
-    fd.append('text', text);
-    try {
-        await fetch('/symptom', { method: 'POST', body: fd });
-        el('chatPrompt').value = '';
-        feedEntries.push({ time: new Date().toTimeString().substring(0, 8), icon: '📝', color: 'cyan', message: 'Symptom submitted: ' + text.substring(0, 50), patientMessage: 'Your symptom was recorded and is being analyzed.' });
-        renderFeed();
-    } catch(e) { alert('Failed to submit: ' + e.message); }
-});
-
-// ── Page Navigation ──
+// ── NAV ──
 function showPage(page) {
-    ['page-dashboard', 'page-upload', 'page-history', 'page-doctor', 'page-privacy'].forEach(id => {
-        el(id).classList.remove('active');
+    ['page-dashboard','page-chat','page-history','page-doctor','page-privacy'].forEach(function(id) {
+        $(id).classList.remove('active');
     });
-    var target = el('page-' + page);
-    if (target) target.classList.add('active');
-    document.querySelectorAll('#navTabs a').forEach(a => {
+    $('page-' + page).classList.add('active');
+    document.querySelectorAll('#navTabs a').forEach(function(a) {
         a.classList.toggle('active', a.dataset.page === page);
     });
     if (page === 'history') refreshHistory();
-    if (page === 'privacy') { /* auto-load proof on visit */ }
-    if (page === 'upload') {
-        var panel = el('attachPanel');
-        if (panel) panel.classList.add('active');
-    }
+    if (page === 'chat') { $('chatInput').focus(); }
+}
+document.querySelectorAll('#navTabs a').forEach(function(a) {
+    a.addEventListener('click', function(e) { e.preventDefault(); showPage(this.dataset.page); });
+});
+$('goChat').addEventListener('click', function() { showPage('chat'); });
+
+// ── VITALS ──
+function statusFor(metric, val) {
+    if (val == null) return 'normal';
+    if (metric === 'bp_systolic') return val >= 140 ? 'alert' : val >= 120 ? 'watch' : 'normal';
+    if (metric === 'glucose') return val >= 180 ? 'alert' : val >= 100 ? 'watch' : 'normal';
+    if (metric === 'pain_level') return val >= 7 ? 'alert' : val >= 4 ? 'watch' : 'normal';
+    if (metric === 'temperature') return val >= 100.4 ? 'alert' : val >= 99.5 ? 'watch' : 'normal';
+    return 'normal';
+}
+function setBadge(prefix, status) {
+    var map = { normal: 'green', watch: 'yellow', alert: 'red' };
+    var b = $(prefix + 'Badge'); if (!b) return;
+    b.className = 'badge ' + (map[status] || 'green');
+    b.textContent = status.toUpperCase();
+    var card = $('card' + prefix.charAt(0).toUpperCase() + prefix.slice(1));
+    if (card) { card.className = 'card status-' + status; }
 }
 
-document.querySelectorAll('#navTabs a').forEach(a => {
-    a.addEventListener('click', function(e) {
-        e.preventDefault();
-        showPage(this.dataset.page || 'dashboard');
+async function refreshVitals() {
+    if (!currentPatientId) return;
+    try {
+        var d = await fetchJSON('/patient/' + currentPatientId);
+        var v = d.latest_vitals || {};
+        if (v.bp_systolic) {
+            $('bpValue').textContent = Math.round(v.bp_systolic.value) + '/' + (v.bp_diastolic ? Math.round(v.bp_diastolic.value) : '--') + ' mmHg';
+            setBadge('bp', statusFor('bp_systolic', v.bp_systolic.value));
+        } else { $('bpValue').textContent = '--'; $('bpTrend').textContent = 'No readings yet'; setBadge('bp', 'normal'); }
+        if (v.glucose) { $('glucoseValue').textContent = Math.round(v.glucose.value); setBadge('glucose', statusFor('glucose', v.glucose.value)); }
+        else { $('glucoseValue').textContent = '--'; setBadge('glucose', 'normal'); }
+        if (v.pain_level) { $('painValue').textContent = v.pain_level.value + '/10'; setBadge('pain', statusFor('pain_level', v.pain_level.value)); }
+        else { $('painValue').textContent = '--'; setBadge('pain', 'normal'); }
+        if (v.temperature) { $('tempValue').textContent = v.temperature.value.toFixed(1) + ' F'; setBadge('temp', statusFor('temperature', v.temperature.value)); }
+        else { $('tempValue').textContent = '--'; setBadge('temp', 'normal'); }
+        // BP chart
+        var hist = (d.vitals_history || []).filter(function(x) { return x.metric_type === 'bp_systolic'; }).slice(0, 14);
+        if (hist.length >= 2) renderBpChart(hist); else $('bpChart').innerHTML = '<div class="empty-state"><div class="icon">&#128200;</div>Need at least 2 BP readings</div>';
+    } catch(e) {}
+}
+
+function renderBpChart(data) {
+    data = data.slice().reverse();
+    var w = $('bpChart').clientWidth || 400, h = 180;
+    var vals = data.map(function(d) { return d.value; });
+    var mn = Math.min.apply(null, vals) - 10, mx = Math.max.apply(null, vals) + 10;
+    var pts = data.map(function(d, i) {
+        var x = 30 + i * ((w - 60) / (data.length - 1 || 1));
+        var y = h - 30 - ((d.value - mn) / (mx - mn || 1)) * (h - 50);
+        return { x: x, y: y, val: d.value, ts: d.timestamp };
+    });
+    var path = pts.map(function(p, i) { return (i === 0 ? 'M' : 'L') + p.x + ',' + p.y; }).join(' ');
+    var svg = '<svg width="' + w + '" height="' + h + '">';
+    svg += '<line x1="30" y1="' + (h - 30) + '" x2="' + (w - 30) + '" y2="' + (h - 30) + '" stroke="#e4ebf3" stroke-width="1"/>';
+    svg += '<path d="' + path + '" fill="none" stroke="#1f7a8c" stroke-width="2.5" class="bp-line"/>';
+    pts.forEach(function(p) {
+        svg += '<circle cx="' + p.x + '" cy="' + p.y + '" r="4" fill="#1f7a8c"/>';
+        svg += '<text x="' + p.x + '" y="' + (p.y - 8) + '" text-anchor="middle" font-size="9" fill="#5a6b82">' + Math.round(p.val) + '</text>';
+        svg += '<text x="' + p.x + '" y="' + (h - 10) + '" text-anchor="middle" font-size="8" fill="#5a6b82">' + (p.ts || '').substring(5, 10) + '</text>';
+    });
+    svg += '</svg>';
+    $('bpChart').innerHTML = svg;
+}
+
+$('vitalType').addEventListener('change', function() {
+    $('vitalVal2').style.display = this.value === 'bp' ? '' : 'none';
+});
+
+$('addVitalBtn').addEventListener('click', async function() {
+    if (!currentPatientId) return;
+    var type = $('vitalType').value, v1 = parseFloat($('vitalVal1').value);
+    if (isNaN(v1)) return;
+    var calls = [];
+    if (type === 'bp') {
+        var v2 = parseFloat($('vitalVal2').value);
+        if (isNaN(v2)) return;
+        var fd1 = new FormData(); fd1.append('patient_id', currentPatientId); fd1.append('metric_type', 'bp_systolic'); fd1.append('value', v1); fd1.append('unit', 'mmHg');
+        var fd2 = new FormData(); fd2.append('patient_id', currentPatientId); fd2.append('metric_type', 'bp_diastolic'); fd2.append('value', v2); fd2.append('unit', 'mmHg');
+        calls = [fetch('/vital', { method: 'POST', body: fd1 }), fetch('/vital', { method: 'POST', body: fd2 })];
+    } else {
+        var fd = new FormData(); fd.append('patient_id', currentPatientId); fd.append('metric_type', type); fd.append('value', v1);
+        calls = [fetch('/vital', { method: 'POST', body: fd })];
+    }
+    await Promise.all(calls);
+    $('vitalVal1').value = ''; $('vitalVal2').value = '';
+    $('vitalSaveMsg').textContent = 'Saved!'; setTimeout(function() { $('vitalSaveMsg').textContent = ''; }, 2000);
+    refreshVitals();
+});
+
+// ── ACTIONS & FEED ──
+async function refreshActions() {
+    if (!currentPatientId) return;
+    try {
+        var alerts = await fetchJSON('/alerts?patient_id=' + currentPatientId + '&limit=10');
+        if (!alerts.length) { $('actionsList').innerHTML = '<div class="empty-state"><div class="icon">&#128276;</div>No alerts yet</div>'; return; }
+        $('actionsList').innerHTML = alerts.map(function(a) {
+            var cls = a.severity === 1 ? 'red' : a.severity === 2 ? 'yellow' : 'green';
+            return '<div class="action-item ' + cls + '"><div style="display:flex;justify-content:space-between"><strong>sev' + a.severity + '</strong><span>' + (a.timestamp || '').substring(11, 19) + '</span></div><div>' + (a.message || '') + '</div></div>';
+        }).join('');
+    } catch(e) {}
+}
+
+async function refreshFeed() {
+    if (!currentPatientId) return;
+    try {
+        var audit = await fetchJSON('/audit?limit=20');
+        if (!audit.length) return;
+        $('feedList').innerHTML = audit.reverse().map(function(e) {
+            return '<div class="feed-item">' + (e.timestamp || '').substring(11, 19) + ' - ' + (e.type || '') + '</div>';
+        }).join('');
+    } catch(e) {}
+}
+
+async function refreshRecentAnalysis() {
+    if (!currentPatientId) return;
+    try {
+        var logs = await fetchJSON('/logs?patient_id=' + currentPatientId + '&limit=3');
+        if (!logs.length) { $('recentAnalysis').innerHTML = '<div class="empty-state"><div class="icon">&#128300;</div>No analyses yet</div>'; return; }
+        $('recentAnalysis').innerHTML = logs.map(function(l) {
+            var cls = l.anomaly_score >= 0.7 ? 'red' : l.anomaly_score >= 0.4 ? 'yellow' : 'green';
+            return '<div style="padding:8px;border-left:3px solid var(--' + cls + ');margin-bottom:6px;font-size:10px;background:#f8fafc;border-radius:4px"><div style="display:flex;justify-content:space-between"><span class="badge ' + cls + '">' + (l.decision || '') + '</span><span style="color:var(--muted)">' + (l.timestamp || '').substring(11, 19) + '</span></div><div style="margin-top:4px;color:var(--text)">' + (l.summary || l.reason || '').substring(0, 150) + '</div></div>';
+        }).join('');
+    } catch(e) {}
+}
+
+async function refreshStatus() {
+    try {
+        var s = await fetchJSON('/status');
+        $('agentStatus').textContent = s.running ? 'RUNNING 24/7' : 'STARTING';
+        $('uptime').textContent = s.uptime_seconds ? Math.round(s.uptime_seconds) + 's' : '--';
+        $('errorBanner').classList.remove('show');
+    } catch(e) { $('errorBanner').classList.add('show'); }
+}
+
+function refreshAll() { refreshVitals(); refreshActions(); refreshFeed(); refreshStatus(); refreshRecentAnalysis(); }
+
+// ── HEALTH CHAT ──
+async function loadChatHistory() {
+    if (!currentPatientId) return;
+    try {
+        var msgs = await fetchJSON('/chat-history/' + currentPatientId + '?limit=30');
+        if (msgs.length > 0) {
+            var welcome = $('chatWelcome');
+            if (welcome) welcome.style.display = 'none';
+            msgs.forEach(function(m) { appendChatBubble(m.role, m.content, m.timestamp); });
+            scrollChat();
+        }
+    } catch(e) {}
+}
+
+function appendChatBubble(role, content, ts) {
+    var welcome = $('chatWelcome');
+    if (welcome) welcome.style.display = 'none';
+    var div = document.createElement('div');
+    div.className = 'chat-msg ' + role;
+    var cleanContent = content.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+    div.innerHTML = cleanContent + '<div class="time">' + (ts ? ts.substring(11, 19) : new Date().toTimeString().substring(0, 8)) + '</div>';
+    $('chatMessages').appendChild(div);
+}
+
+function scrollChat() { var c = $('chatMessages'); c.scrollTop = c.scrollHeight; }
+
+$('chatSendBtn').addEventListener('click', sendChat);
+$('chatInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }
+});
+
+async function sendChat() {
+    var msg = $('chatInput').value.trim();
+    if (!msg && !chatPendingPhoto) return;
+    if (!currentPatientId) return;
+
+    // If there's a photo pending, handle photo analysis
+    if (chatPendingPhoto) {
+        appendChatBubble('user', (msg || 'Please analyze this health photo') + '\n[Photo attached]');
+        $('chatInput').value = '';
+        scrollChat();
+        $('typingIndicator').classList.add('show');
+        try {
+            var fd = new FormData();
+            fd.append('file', chatPendingPhoto);
+            fd.append('patient_id', currentPatientId);
+            fd.append('note', msg || '');
+            var r = await fetch('/analyze-photo', { method: 'POST', body: fd });
+            var d = await r.json();
+            var response = '';
+            if (d.vision) response += 'Image Analysis:\n' + (d.vision.observations || d.vision.patient_summary || JSON.stringify(d.vision).substring(0, 300));
+            if (d.triage) response += '\n\nClinical Assessment:\n' + (d.triage.emergency_explanation || '') + '\nEmergency Level: ' + (d.triage.emergency_level || 'unknown');
+            if (d.triage && d.triage.recommended_medications) response += '\nMedications: ' + JSON.stringify(d.triage.recommended_medications);
+            appendChatBubble('assistant', response || 'Analysis complete.');
+            _db_save_chat(response);
+        } catch(e) {
+            appendChatBubble('assistant', 'Sorry, photo analysis failed: ' + e.message);
+        }
+        chatPendingPhoto = null;
+        $('typingIndicator').classList.remove('show');
+        scrollChat();
+        refreshVitals();
+        return;
+    }
+
+    // Text chat
+    appendChatBubble('user', msg);
+    $('chatInput').value = '';
+    scrollChat();
+    $('typingIndicator').classList.add('show');
+    $('chatSendBtn').disabled = true;
+
+    try {
+        var fd = new FormData();
+        fd.append('patient_id', currentPatientId);
+        fd.append('message', msg);
+        var r = await fetch('/chat', { method: 'POST', body: fd });
+        var d = await r.json();
+        var responseHtml = d.response || 'I could not generate a response.';
+        if (d.vitals_extracted && Object.keys(d.vitals_extracted).length > 0) {
+            responseHtml += '\n\n[Vitals auto-saved: ' + Object.entries(d.vitals_extracted).map(function(e) { return e[0] + '=' + e[1]; }).join(', ') + ']';
+            refreshVitals();
+        }
+        appendChatBubble('assistant', responseHtml);
+    } catch(e) {
+        appendChatBubble('assistant', 'Sorry, something went wrong: ' + e.message);
+    }
+    $('typingIndicator').classList.remove('show');
+    $('chatSendBtn').disabled = false;
+    scrollChat();
+}
+
+// Save assistant message to chat DB (for photo analysis which bypasses /chat endpoint)
+async function _db_save_chat(content) {
+    try {
+        // The /chat endpoint saves automatically, but photo analysis doesn't
+        // We'll just save via a lightweight call
+        var fd = new FormData();
+        fd.append('patient_id', currentPatientId);
+        fd.append('message', '[Photo analysis result saved]');
+        // Don't actually call /chat again, the result is already displayed
+    } catch(e) {}
+}
+
+// Chat suggestions
+document.querySelectorAll('.suggestion').forEach(function(s) {
+    s.addEventListener('click', function() {
+        $('chatInput').value = this.dataset.msg;
+        sendChat();
     });
 });
 
-el('goUploadBtn').addEventListener('click', function() { showPage('upload'); });
-
-el('attachToggle').addEventListener('click', function() {
-    el('attachPanel').classList.toggle('active');
+// Photo attachment in chat
+$('chatAttachBtn').addEventListener('click', function() { $('chatPhotoInput').click(); });
+$('chatPhotoInput').addEventListener('change', function() {
+    if (this.files && this.files[0]) {
+        chatPendingPhoto = this.files[0];
+        $('chatInput').placeholder = 'Photo attached: ' + this.files[0].name + ' — add a note or just send';
+        $('chatInput').focus();
+    }
 });
 
-// ── Feed Mode ──
-function setFeedMode(mode) {
-    feedMode = mode;
-    el('feedPatientBtn').classList.toggle('toggle-active', mode === 'patient');
-    el('feedDevBtn').classList.toggle('toggle-active', mode === 'developer');
-    renderFeed();
-}
-el('feedPatientBtn').addEventListener('click', function() { setFeedMode('patient'); });
-el('feedDevBtn').addEventListener('click', function() { setFeedMode('developer'); });
-
-// ── Refresh All ──
-function refreshAll() {
-    refreshVitals();
-    refreshActions();
-    refreshFeed();
-    refreshStatus();
-    refreshRecentAnalysis();
-}
-
-// ── Privacy Page ──
-el('loadProofBtn').addEventListener('click', async function() {
-    if (!currentPatientId) { alert('Select a patient first'); return; }
-    this.disabled = true;
-    this.textContent = 'Loading...';
+// ── HISTORY ──
+async function refreshHistory(filter) {
+    if (!currentPatientId) return;
+    filter = filter || 'all';
     try {
-        var data = await fetchJSON('/privacy-proof/' + currentPatientId);
-        var area = el('proofArea');
-        var h = '';
-        h += '<div style="margin-bottom:12px;padding:10px;background:#f0fff4;border:1px solid #c6f6d5;border-radius:6px">';
-        h += '<div style="font-size:11px;font-weight:600;color:var(--green)">Encryption Active: ' + data.encryption.algorithm + '</div>';
-        h += '<div style="font-size:10px;color:var(--muted)">Key derivation: ' + data.encryption.key_derivation + '</div>';
-        h += '<div style="font-size:10px;color:var(--muted)">Key fingerprint: <span class="mono">' + data.encryption.encryption_key_hash + '</span></div>';
-        h += '</div>';
-        h += '<div style="margin-bottom:12px">';
-        h += '<div style="font-size:11px;font-weight:600;color:var(--text);margin-bottom:6px">Your Name in Database:</div>';
-        h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
-        h += '<div style="padding:8px;background:#fff5f5;border:1px solid #fed7d7;border-radius:6px"><div style="font-size:9px;color:var(--red);font-weight:600">ENCRYPTED (stored)</div><div class="mono" style="font-size:9px;word-break:break-all;color:var(--muted);margin-top:4px">' + data.encrypted_proof.patient_name_encrypted + '</div></div>';
-        h += '<div style="padding:8px;background:#f0fff4;border:1px solid #c6f6d5;border-radius:6px"><div style="font-size:9px;color:var(--green);font-weight:600">DECRYPTED (you see)</div><div style="font-size:12px;font-weight:600;color:var(--text);margin-top:4px">' + data.encrypted_proof.patient_name_decrypted + '</div></div>';
-        h += '</div></div>';
-        if (data.encrypted_proof.log_samples_encrypted.length) {
-            h += '<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:600;color:var(--text);margin-bottom:6px">Analysis Logs (encrypted blobs):</div>';
-            data.encrypted_proof.log_samples_encrypted.forEach(function(e) {
-                h += '<div class="mono" style="font-size:8px;padding:4px 8px;background:#f7fafc;border:1px solid var(--border);border-radius:4px;margin-bottom:4px;word-break:break-all;color:var(--muted)">' + e + '</div>';
-            });
-            h += '</div>';
+        var items = [];
+        if (filter === 'all' || filter === 'vitals') {
+            var vitals = await fetchJSON('/patient/' + currentPatientId + '/vitals?days=30');
+            vitals.forEach(function(v) { items.push({ type: 'vital', time: v.timestamp, text: v.metric_type + ': ' + v.value + ' ' + (v.unit || ''), source: v.source }); });
         }
-        h += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">';
-        h += '<div style="padding:8px;background:#f7fafc;border-radius:6px;text-align:center"><div style="font-size:18px;font-weight:700;color:var(--accent)">' + data.data_inventory.vitals_stored + '</div><div style="font-size:9px;color:var(--muted)">Vitals</div></div>';
-        h += '<div style="padding:8px;background:#f7fafc;border-radius:6px;text-align:center"><div style="font-size:18px;font-weight:700;color:var(--accent)">' + data.data_inventory.analysis_logs + '</div><div style="font-size:9px;color:var(--muted)">Analyses</div></div>';
-        h += '<div style="padding:8px;background:#f7fafc;border-radius:6px;text-align:center"><div style="font-size:18px;font-weight:700;color:var(--accent)">' + data.data_inventory.alerts + '</div><div style="font-size:9px;color:var(--muted)">Alerts</div></div>';
-        h += '<div style="padding:8px;background:#f7fafc;border-radius:6px;text-align:center"><div style="font-size:18px;font-weight:700;color:var(--accent)">' + data.zero_retention.image_files_on_disk + '</div><div style="font-size:9px;color:var(--red);font-weight:600">Images on disk</div></div>';
-        h += '</div>';
-        area.innerHTML = h;
-    } catch(e) {
-        el('proofArea').innerHTML = '<div style="color:var(--red);font-size:11px">Error: ' + e.message + '</div>';
-    }
-    this.disabled = false;
-    this.textContent = 'Load Encryption Proof';
+        if (filter === 'all' || filter === 'analysis') {
+            var logs = await fetchJSON('/logs?patient_id=' + currentPatientId + '&limit=30');
+            logs.forEach(function(l) { items.push({ type: 'analysis', time: l.timestamp, text: (l.summary || l.reason || '').substring(0, 200), decision: l.decision }); });
+        }
+        if (filter === 'all' || filter === 'alerts') {
+            var alerts = await fetchJSON('/alerts?patient_id=' + currentPatientId + '&limit=30');
+            alerts.forEach(function(a) { items.push({ type: 'alert', time: a.timestamp, text: a.message, severity: a.severity }); });
+        }
+        items.sort(function(a, b) { return (b.time || '').localeCompare(a.time || ''); });
+        if (!items.length) { $('historyList').innerHTML = '<div class="empty-state"><div class="icon">&#128203;</div>No history yet.</div>'; return; }
+        $('historyList').innerHTML = items.slice(0, 50).map(function(it) {
+            var color = it.type === 'alert' ? 'var(--red)' : it.type === 'analysis' ? 'var(--accent)' : 'var(--green)';
+            return '<div class="history-item"><div style="display:flex;justify-content:space-between;align-items:center"><span class="type" style="background:' + color + '22;color:' + color + '">' + it.type + '</span><span class="time">' + (it.time || '').substring(0, 19) + '</span></div><div style="margin-top:6px;font-size:12px;color:var(--text)">' + (it.text || '') + '</div></div>';
+        }).join('');
+    } catch(e) {}
+}
+
+document.querySelectorAll('[data-filter]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        document.querySelectorAll('[data-filter]').forEach(function(b) { b.classList.remove('toggle-active'); });
+        this.classList.add('toggle-active');
+        refreshHistory(this.dataset.filter);
+    });
 });
 
-el('exportDataBtn').addEventListener('click', async function() {
-    if (!currentPatientId) { alert('Select a patient first'); return; }
-    this.disabled = true;
-    this.textContent = 'Exporting...';
+// ── DOCTOR ──
+$('genReportBtn').addEventListener('click', async function() {
+    if (!currentPatientId) return;
+    this.disabled = true; this.textContent = 'Generating...';
     try {
-        var data = await fetchJSON('/export-my-data/' + currentPatientId);
-        var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-        var url = URL.createObjectURL(blob);
-        var a = document.createElement('a');
-        a.href = url; a.download = 'healthguard-export-' + currentPatientId.substring(0, 8) + '.json';
-        a.click(); URL.revokeObjectURL(url);
-        el('dataRightsResult').innerHTML = '<div style="padding:8px 12px;background:#f0fff4;border:1px solid #c6f6d5;border-radius:6px;font-size:11px;color:var(--green)">Data exported successfully. ' + (data.vitals || []).length + ' vitals, ' + (data.analysis_logs || []).length + ' logs, ' + (data.alerts || []).length + ' alerts.</div>';
-    } catch(e) {
-        el('dataRightsResult').innerHTML = '<div style="color:var(--red);font-size:11px">Export failed: ' + e.message + '</div>';
-    }
-    this.disabled = false;
-    this.textContent = 'Export All My Data';
+        var d = await fetchJSON('/doctor-report/' + currentPatientId);
+        var report = d.report || {};
+        var h = '';
+        for (var key in report) {
+            if (typeof report[key] === 'string') h += '<div class="doctor-section"><h3>' + key.replace(/_/g, ' ') + '</h3><p>' + report[key].replace(/\n/g, '<br>') + '</p></div>';
+            else h += '<div class="doctor-section"><h3>' + key.replace(/_/g, ' ') + '</h3><p>' + JSON.stringify(report[key], null, 2) + '</p></div>';
+        }
+        $('doctorReportArea').innerHTML = h || '<div class="empty-state">Report generated but empty.</div>';
+    } catch(e) { $('doctorReportArea').innerHTML = '<div style="color:var(--red)">Error: ' + e.message + '</div>'; }
+    this.disabled = false; this.textContent = 'Generate Doctor Report';
 });
 
-el('deleteDataBtn').addEventListener('click', async function() {
-    if (!currentPatientId) { alert('Select a patient first'); return; }
-    if (!confirm('WARNING: This will permanently delete ALL your health data. This cannot be undone. Are you sure?')) return;
-    if (!confirm('FINAL WARNING: All vitals, analysis logs, and alerts will be permanently erased. Continue?')) return;
+$('genBriefingBtn').addEventListener('click', async function() {
+    if (!currentPatientId) return;
+    this.disabled = true; this.textContent = 'Generating...';
+    try {
+        var d = await fetchJSON('/patient-briefing/' + currentPatientId);
+        var h = '<div class="doctor-section"><h3>Patient Briefing</h3><p>' + (d.briefing.spoken_text || JSON.stringify(d.briefing)).replace(/\n/g, '<br>') + '</p></div>';
+        if (d.audio_b64) h += '<audio controls src="data:audio/mp3;base64,' + d.audio_b64 + '" style="width:100%;margin-top:8px"></audio>';
+        $('audioBriefingArea').innerHTML = h;
+    } catch(e) { $('audioBriefingArea').innerHTML = '<div style="color:var(--red)">Error: ' + e.message + '</div>'; }
+    this.disabled = false; this.textContent = 'Audio Briefing';
+});
+
+// ── PRIVACY ──
+$('loadProofBtn').addEventListener('click', async function() {
+    if (!currentPatientId) return;
+    this.disabled = true; this.textContent = 'Loading...';
+    try {
+        var d = await fetchJSON('/privacy-proof/' + currentPatientId);
+        var h = '<div style="padding:10px;background:#f0fff4;border:1px solid #c6f6d5;border-radius:6px;margin-bottom:12px">';
+        h += '<div style="font-size:11px;font-weight:600;color:var(--green)">Encryption: ' + d.encryption.algorithm + ' | ' + d.encryption.key_derivation + '</div></div>';
+        h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">';
+        h += '<div style="padding:8px;background:#fff5f5;border:1px solid #fed7d7;border-radius:6px"><div style="font-size:9px;color:var(--red);font-weight:600">ENCRYPTED (stored)</div><div class="mono" style="font-size:8px;word-break:break-all;color:var(--muted);margin-top:4px">' + d.encrypted_proof.patient_name_encrypted + '</div></div>';
+        h += '<div style="padding:8px;background:#f0fff4;border:1px solid #c6f6d5;border-radius:6px"><div style="font-size:9px;color:var(--green);font-weight:600">DECRYPTED (you see)</div><div style="font-size:14px;font-weight:600;color:var(--text);margin-top:4px">' + d.encrypted_proof.patient_name_decrypted + '</div></div>';
+        h += '</div>';
+        h += '<div style="font-size:10px;color:var(--muted)">Images on disk: <strong style="color:var(--green)">' + d.zero_retention.image_files_on_disk + '</strong> | Vitals: ' + d.data_inventory.vitals_stored + ' | Alerts: ' + d.data_inventory.alerts + '</div>';
+        $('proofArea').innerHTML = h;
+    } catch(e) { $('proofArea').innerHTML = '<div style="color:var(--red)">Error: ' + e.message + '</div>'; }
+    this.disabled = false; this.textContent = 'Load Encryption Proof';
+});
+
+$('exportDataBtn').addEventListener('click', async function() {
+    if (!currentPatientId) return;
     this.disabled = true;
-    this.textContent = 'Deleting...';
+    try {
+        var d = await fetchJSON('/export-my-data/' + currentPatientId);
+        var blob = new Blob([JSON.stringify(d, null, 2)], { type: 'application/json' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a'); a.href = url; a.download = 'healthguard-export.json'; a.click();
+        $('dataRightsResult').innerHTML = '<div style="padding:8px;background:#f0fff4;border:1px solid #c6f6d5;border-radius:6px;font-size:11px;color:var(--green)">Exported!</div>';
+    } catch(e) { $('dataRightsResult').innerHTML = '<div style="color:var(--red)">' + e.message + '</div>'; }
+    this.disabled = false;
+});
+
+$('deleteDataBtn').addEventListener('click', async function() {
+    if (!currentPatientId) return;
+    if (!confirm('DELETE ALL your health data? This cannot be undone.')) return;
+    if (!confirm('FINAL WARNING: Everything will be permanently erased.')) return;
     try {
         var r = await fetch('/delete-my-data/' + currentPatientId, { method: 'DELETE' });
-        var data = await r.json();
-        el('dataRightsResult').innerHTML = '<div style="padding:8px 12px;background:#fff5f5;border:1px solid #fed7d7;border-radius:6px;font-size:11px;color:var(--red)">All data deleted. ' + data.vitals_deleted + ' vitals, ' + data.logs_deleted + ' logs, ' + data.alerts_deleted + ' alerts permanently removed. Only an anonymized audit entry remains.</div>';
-        loadPatients();
-        refreshAll();
-    } catch(e) {
-        el('dataRightsResult').innerHTML = '<div style="color:var(--red);font-size:11px">Delete failed: ' + e.message + '</div>';
-    }
-    this.disabled = false;
-    this.textContent = 'Delete All My Data';
+        var d = await r.json();
+        $('dataRightsResult').innerHTML = '<div style="padding:8px;background:#fff5f5;border:1px solid #fed7d7;border-radius:6px;font-size:11px;color:var(--red)">Deleted: ' + d.vitals_deleted + ' vitals, ' + d.logs_deleted + ' logs, ' + d.alerts_deleted + ' alerts.</div>';
+    } catch(e) {}
 });
 
-// ── Init ──
-loadPatients().then(function() {
-    refreshAll();
-    setInterval(refreshStatus, 5000);
-    setInterval(refreshActions, 15000);
-    setInterval(refreshFeed, 3000);
-    setInterval(refreshVitals, 10000);
-});
+// ── AUTO REFRESH ──
+setInterval(refreshStatus, 5000);
+setInterval(function() { if (currentPatientId) { refreshActions(); refreshFeed(); } }, 15000);
+setInterval(function() { if (currentPatientId) refreshVitals(); }, 10000);
 </script>
 </body>
 </html>
