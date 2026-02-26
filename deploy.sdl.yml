@@ -3,7 +3,7 @@ version: "2.0"
 
 services:
   healthguard:
-    image: karthiksai109/healthguard:v2.2
+    image: karthiksai109/healthguard:v2.3
     env:
       - VENICE_API_KEY=
       - AKASHML_API_KEY=
