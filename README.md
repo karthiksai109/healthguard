@@ -3,7 +3,7 @@
 > **Autonomous 24/7 health monitoring that keeps patient data private.**
 > Built on Venice AI (zero data retention) + Akash Network (decentralized compute).
 
-**🔴 Live Demo: [http://l0946c8s4d9vf10nea529nuqao.ingress.boogle.cloud/](http://l0946c8s4d9vf10nea529nuqao.ingress.boogle.cloud/)**
+**🔴 Live Demo: [http://e120ljgujpakv138mv12tn7ffs.ingress.europlots.com/](http://e120ljgujpakv138mv12tn7ffs.ingress.europlots.com/)**
 
 Demo login: Use any patient access key (check Akash deployment logs for keys generated at startup)
 
