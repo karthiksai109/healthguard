@@ -129,7 +129,7 @@ docker push karthiksai109/healthguard:latest
 # Use deploy.sdl.yml in Akash Console
 # Persistent volume at /data survives redeploys
 ```
-
+## Deployment Link: http://l0946c8s4d9vf10nea529nuqao.ingress.boogle.cloud/
 ## API Endpoints
 
 | Endpoint | Method | Description |
