@@ -847,6 +847,24 @@ async function loadChatHistory() {
     } catch(e) {}
 }
 
+function _renderRichText(text) {
+    // Convert markdown-like formatting to HTML for rich chat display
+    var html = text.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    // Bold: **text** or __text__
+    html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    html = html.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+    // Headers: ### text -> bold colored text
+    html = html.replace(/^### (.+)$/gm, '<div style="font-weight:700;color:var(--accent);margin:8px 0 4px;font-size:13px">$1</div>');
+    html = html.replace(/^## (.+)$/gm, '<div style="font-weight:700;color:var(--accent);margin:10px 0 4px;font-size:14px">$1</div>');
+    // Numbered lists: 1. text
+    html = html.replace(/^(\d+)\. (.+)$/gm, '<div style="margin:2px 0 2px 12px"><strong style="color:var(--accent)">$1.</strong> $2</div>');
+    // Bullet lists: - text or * text
+    html = html.replace(/^[\-\*] (.+)$/gm, '<div style="margin:2px 0 2px 12px">&#8226; $1</div>');
+    // Newlines
+    html = html.replace(/\n/g, '<br>');
+    return html;
+}
+
 function appendChatBubble(role, content, ts) {
     var welcome = $('chatWelcome');
     if (welcome) welcome.style.display = 'none';
@@ -854,7 +872,7 @@ function appendChatBubble(role, content, ts) {
     div.className = 'chat-msg ' + role;
     // Strip [VITALS]...[/VITALS] tags from display
     var stripped = content.replace(/\[VITALS\][\s\S]*?\[\/VITALS\]/g, '').replace(/\[Vitals auto-saved:[^\]]*\]/g, '').trim();
-    var cleanContent = stripped.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+    var cleanContent = role === 'assistant' ? _renderRichText(stripped) : stripped.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
     div.innerHTML = cleanContent + '<div class="time">' + (ts ? ts.substring(11, 19) : new Date().toTimeString().substring(0, 8)) + '</div>';
     $('chatMessages').appendChild(div);
 }
@@ -896,22 +914,54 @@ function _fmtPhoto(d) {
     if (t.primary_concern) lines.push('\n⚠️ Primary Concern: ' + t.primary_concern);
     if (t.emergency_explanation) lines.push(t.emergency_explanation);
     var dx = t.diagnosis_assessment;
-    if (dx && typeof dx === 'object' && dx.most_likely) lines.push('\n🩺 Likely Diagnosis: ' + dx.most_likely + (dx.confidence ? ' (' + Math.round(dx.confidence*100) + '%)' : ''));
+    if (dx && typeof dx === 'object' && dx.most_likely) {
+        lines.push('\n🩺 Likely Diagnosis: ' + dx.most_likely + (dx.confidence ? ' (' + Math.round(dx.confidence*100) + '% confidence)' : ''));
+        if (dx.reasoning) lines.push('   ' + dx.reasoning);
+        if (dx.differential && Array.isArray(dx.differential) && dx.differential.length) {
+            lines.push('   Other possibilities: ' + dx.differential.join(', '));
+        }
+    }
     if (t.immediate_actions && Array.isArray(t.immediate_actions) && t.immediate_actions.length) {
         lines.push('\n🚨 Immediate Actions:');
         t.immediate_actions.forEach(function(a) { lines.push('  • ' + a); });
     }
     if (t.treatment_plan && Array.isArray(t.treatment_plan) && t.treatment_plan.length) {
         lines.push('\n📋 Treatment Plan:');
-        t.treatment_plan.forEach(function(s) { lines.push('  • ' + (typeof s === 'object' ? (s.action||'') + (s.timeframe ? ' (' + s.timeframe + ')' : '') : s)); });
+        t.treatment_plan.forEach(function(s) {
+            if (typeof s === 'object') {
+                var line = '  • ' + (s.action||'');
+                if (s.timeframe) line += ' (' + s.timeframe + ')';
+                if (s.details) line += '\n      ' + s.details;
+                lines.push(line);
+            } else { lines.push('  • ' + s); }
+        });
     }
     if (t.medications && Array.isArray(t.medications) && t.medications.length) {
         lines.push('\n💊 Medications:');
-        t.medications.forEach(function(m) { lines.push('  • ' + (typeof m === 'object' ? (m.name||'') + ' ' + (m.dosage||'') + ' (' + (m.type||'') + ')' : m)); });
+        t.medications.forEach(function(m) {
+            if (typeof m === 'object') {
+                var line = '  • ' + (m.name||'') + ' ' + (m.dosage||'') + ' (' + (m.type||'') + ')';
+                if (m.frequency) line += ' - ' + m.frequency;
+                if (m.duration) line += ' for ' + m.duration;
+                if (m.warnings) line += '\n      ⚠️ ' + m.warnings;
+                lines.push(line);
+            } else { lines.push('  • ' + m); }
+        });
+    }
+    if (t.home_care && Array.isArray(t.home_care) && t.home_care.length) {
+        lines.push('\n🏠 Home Care:');
+        t.home_care.forEach(function(c) { lines.push('  • ' + c); });
+    }
+    if (t.warning_signs && Array.isArray(t.warning_signs) && t.warning_signs.length) {
+        lines.push('\n🚩 Warning Signs (seek help if you notice):');
+        t.warning_signs.forEach(function(w) { lines.push('  ⚠️ ' + w); });
     }
     if (t.requires_doctor) lines.push('\n🏥 See Doctor: ' + (t.doctor_urgency || 'recommended').replace(/_/g, ' '));
     var dn = t.doctor_notification;
-    if (dn && typeof dn === 'object' && dn.notify_now) lines.push('⚡ Doctor notified: ' + (dn.reason || ''));
+    if (dn && typeof dn === 'object') {
+        if (dn.notify_now) lines.push('⚡ Doctor notified: ' + (dn.reason || ''));
+        if (dn.recommended_specialist) lines.push('👨‍⚕️ Recommended Specialist: ' + dn.recommended_specialist);
+    }
     return lines.length ? lines.join('\n') : 'Analysis complete.';
 }
 
@@ -981,7 +1031,7 @@ async function sendChat() {
                     if (ev.t) {
                         fullText += ev.t;
                         var displayText = fullText.replace(/\[VITALS\][\s\S]*?\[\/VITALS\]/g, '').replace(/\[VITALS\][\s\S]*/g, '').trim();
-                        streamEl.innerHTML = displayText.replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+                        streamEl.innerHTML = _renderRichText(displayText);
                         scrollChat();
                     }
                     if (ev.done && ev.vitals_extracted && Object.keys(ev.vitals_extracted).length > 0) {
@@ -1228,11 +1278,14 @@ async function loadDoctorSuggestions() {
     try {
         var d = await fetchJSON('/suggest-doctors/' + currentPatientId);
         if (d.patient_issues && d.patient_issues.length && d.suggested_doctors && d.suggested_doctors.length) {
-            var h = '<div class="alert-suggest"><div class="title">&#9888; Based on your health data, we recommend seeing a specialist:</div>';
-            h += '<div style="font-size:11px;color:var(--muted);margin-bottom:8px">Issues detected: ' + d.patient_issues.join(', ') + '</div>';
+            var h = '<div class="alert-suggest"><div class="title">&#9888; AI Health Assessment</div>';
+            if (d.overall_assessment) h += '<div style="font-size:12px;color:var(--text);margin-bottom:8px;line-height:1.5">' + d.overall_assessment + '</div>';
+            h += '<div style="font-size:10px;color:var(--muted);margin-bottom:8px">Detected issues: <strong>' + d.patient_issues.join(', ') + '</strong></div>';
             h += d.suggested_doctors.slice(0, 3).map(function(doc) {
+                var reasonHtml = doc.ai_reason ? '<div style="font-size:9px;color:var(--muted);margin-top:2px">' + doc.ai_reason + '</div>' : '';
+                var urgencyBadge = doc.ai_urgency && doc.ai_urgency !== 'routine' ? ' <span style="font-size:8px;padding:1px 5px;border-radius:3px;background:' + (doc.ai_urgency === 'immediate' ? 'var(--red)' : doc.ai_urgency === 'urgent' ? '#f59e0b' : 'var(--accent)') + ';color:#fff;font-weight:600">' + doc.ai_urgency.toUpperCase() + '</span>' : '';
                 return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px;background:#fff;border-radius:6px;margin-bottom:4px">' +
-                    '<div><strong style="font-size:12px">Dr. ' + doc.name + '</strong> <span style="font-size:10px;color:var(--accent)">' + doc.specialization + '</span> <span style="font-size:10px;color:var(--green)">' + doc.pay_rate + '</span></div>' +
+                    '<div><strong style="font-size:12px">Dr. ' + doc.name + '</strong> <span style="font-size:10px;color:var(--accent)">' + doc.specialization + '</span>' + urgencyBadge + ' <span style="font-size:10px;color:var(--green)">' + doc.pay_rate + '</span>' + reasonHtml + '</div>' +
                     '<button class="btn small primary" onclick="requestConsultation(\'' + doc.id + '\',\'' + doc.name.replace(/'/g, '') + '\',\'' + doc.specialization + '\')">Request</button>' +
                 '</div>';
             }).join('');

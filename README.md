@@ -3,6 +3,10 @@
 > **Autonomous 24/7 health monitoring that keeps patient data private.**
 > Built on Venice AI (zero data retention) + Akash Network (decentralized compute).
 
+**🔴 Live Demo: [http://l0946c8s4d9vf10nea529nuqao.ingress.boogle.cloud/](http://l0946c8s4d9vf10nea529nuqao.ingress.boogle.cloud/)**
+
+Demo login: Use any patient access key (check Akash deployment logs for keys generated at startup)
+
 ## The Problem
 
 Patients need continuous health monitoring with AI analysis. But:

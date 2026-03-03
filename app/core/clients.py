@@ -12,6 +12,7 @@ def get_venice_client(config: AppConfig) -> OpenAI:
     return OpenAI(
         api_key=config.venice.api_key,
         base_url=config.venice.base_url,
+        timeout=30.0,
     )
 
 

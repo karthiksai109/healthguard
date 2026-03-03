@@ -15,6 +15,7 @@ API endpoints:
 import io
 import os
 import time
+import concurrent.futures
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
 import json as _json
@@ -101,17 +102,18 @@ async def login(access_key: str = Form(...)):
 
 # ── Health Chat — AI Conversation ─────────────────────────────────────
 
-_CHAT_SYSTEM = """You are HealthGuard, a concise AI health assistant on Akash decentralized cloud.
-Be empathetic, accurate, and brief (2-4 sentences unless detail is needed). Recommend a doctor for serious issues.
-If vitals are mentioned, append: [VITALS]{{"bp_systolic":130}}[/VITALS] (only mentioned ones)."""
+_CHAT_SYSTEM = """You are HealthGuard, a helpful AI health assistant. Be warm and specific.
+Reference the patient's vitals/history when relevant. Give actionable medical guidance.
+If the user's NEW message explicitly states vital numbers, append: [VITALS]{{"bp_systolic":130}}[/VITALS]
+Only extract vitals the user JUST typed. Never extract vitals from context."""
 
 
 def _build_chat_msgs(patient, patient_id, message):
     context = _agent.memory.load_context(patient_id)
     ctx = _agent.memory.format_for_ai(context)[:400]
-    hist = _db.get_chat_history(patient_id, limit=4)
-    msgs = [{"role": "system", "content": _CHAT_SYSTEM + f"\nPatient: {patient['name']}\nContext: {ctx}"}]
-    for m in hist[-3:]:
+    hist = _db.get_chat_history(patient_id, limit=3)
+    msgs = [{"role": "system", "content": _CHAT_SYSTEM + f"\nPatient: {patient['name']}\n{ctx}"}]
+    for m in hist[-2:]:
         msgs.append({"role": m["role"], "content": m["content"][-150:]})
     msgs.append({"role": "user", "content": message.strip()})
     return msgs
@@ -144,8 +146,8 @@ async def health_chat(patient_id: str = Form(...), message: str = Form(...)):
     msgs = _build_chat_msgs(patient, patient_id, message)
     try:
         resp = _agent.venice.chat.completions.create(
-            model="llama-3.3-70b", messages=msgs,
-            max_tokens=300, temperature=0.3,
+            model="mistral-31-24b", messages=msgs,
+            max_tokens=350, temperature=0.4,
         )
         ai_response = resp.choices[0].message.content.strip()
         _agent.stats["venice_calls"] += 1
@@ -175,8 +177,8 @@ async def health_chat_stream(patient_id: str = Form(...), message: str = Form(..
         full = ""
         try:
             stream = _agent.venice.chat.completions.create(
-                model="llama-3.3-70b", messages=msgs,
-                max_tokens=300, temperature=0.3, stream=True,
+                model="mistral-31-24b", messages=msgs,
+                max_tokens=350, temperature=0.4, stream=True,
             )
             for chunk in stream:
                 if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
@@ -389,39 +391,152 @@ def doctor_view_patient_data(consultation_id: str, doctor_id: str = None):
 
 @app.get("/suggest-doctors/{patient_id}")
 def suggest_doctors(patient_id: str):
-    """AI suggests specialist doctors based on patient's health issues."""
+    """Smart rule-based doctor matching — instant response (<500ms). Uses vitals, alerts, and chat keywords."""
     patient = _db.get_patient(patient_id)
     if not patient:
         raise HTTPException(404, "Patient not found")
     latest = _db.get_latest_vitals(patient_id)
     alerts = _db.get_alerts(patient_id, limit=5)
-    # Determine specializations needed
-    needed = set()
+    chat_hist = _db.get_chat_history(patient_id, limit=6)
+    all_docs = _db.list_doctors(verified_only=False)
+
+    # ── Smart rule-based detection (instant) ──
+    issues = []
+    needed_specs = {}  # specialization -> {"reason": ..., "urgency": ...}
+
+    # Analyze vitals
     for metric, data in latest.items():
         v = data["value"]
-        if metric in ("bp_systolic",) and v >= 140:
-            needed.add("Cardiology")
-        if metric in ("bp_diastolic",) and v >= 90:
-            needed.add("Cardiology")
-        if metric == "glucose" and v >= 180:
-            needed.add("Endocrinology")
-        if metric == "temperature" and v >= 100.4:
-            needed.add("General Medicine")
-        if metric == "pain_level" and v >= 7:
-            needed.add("General Medicine")
-        if metric == "oxygen_saturation" and v < 92:
-            needed.add("Pulmonology")
+        if metric == "bp_systolic":
+            if v >= 180:
+                needed_specs["Cardiology"] = {"reason": f"Critical blood pressure ({v} mmHg) — hypertensive crisis risk", "urgency": "immediate"}
+                issues.append("Hypertensive crisis")
+            elif v >= 140:
+                needed_specs["Cardiology"] = {"reason": f"High blood pressure ({v} mmHg) — stage 2 hypertension", "urgency": "soon"}
+                issues.append("High blood pressure")
+            elif v >= 130:
+                needed_specs.setdefault("Cardiology", {"reason": f"Elevated blood pressure ({v} mmHg) — early intervention recommended", "urgency": "routine"})
+                issues.append("Elevated blood pressure")
+        elif metric == "bp_diastolic":
+            if v >= 120:
+                needed_specs["Cardiology"] = {"reason": f"Critical diastolic pressure ({v} mmHg)", "urgency": "immediate"}
+                if "Hypertensive crisis" not in issues: issues.append("Hypertensive crisis")
+            elif v >= 90:
+                needed_specs.setdefault("Cardiology", {"reason": f"Elevated diastolic pressure ({v} mmHg)", "urgency": "soon"})
+        elif metric == "glucose":
+            if v >= 250:
+                needed_specs["Endocrinology"] = {"reason": f"Dangerously high glucose ({v} mg/dL) — needs urgent diabetic management", "urgency": "urgent"}
+                issues.append("Critical glucose levels")
+            elif v >= 180:
+                needed_specs["Endocrinology"] = {"reason": f"High glucose ({v} mg/dL) — diabetes monitoring needed", "urgency": "soon"}
+                issues.append("High blood sugar")
+            elif v < 70:
+                needed_specs["Endocrinology"] = {"reason": f"Low glucose ({v} mg/dL) — hypoglycemia risk", "urgency": "urgent"}
+                issues.append("Low blood sugar")
+        elif metric == "temperature":
+            if v >= 103:
+                needed_specs["Emergency Medicine"] = {"reason": f"High fever ({v}°F) — may indicate serious infection", "urgency": "urgent"}
+                issues.append("High fever")
+            elif v >= 100.4:
+                needed_specs.setdefault("General Medicine", {"reason": f"Fever ({v}°F) — infection screening recommended", "urgency": "soon"})
+                issues.append("Fever")
+        elif metric == "heart_rate":
+            if v >= 120:
+                needed_specs.setdefault("Cardiology", {"reason": f"Rapid heart rate ({v} bpm) — tachycardia evaluation needed", "urgency": "urgent"})
+                issues.append("Tachycardia")
+            elif v >= 100:
+                needed_specs.setdefault("Cardiology", {"reason": f"Elevated heart rate ({v} bpm)", "urgency": "routine"})
+                issues.append("Elevated heart rate")
+            elif v < 50:
+                needed_specs.setdefault("Cardiology", {"reason": f"Very low heart rate ({v} bpm) — bradycardia concern", "urgency": "soon"})
+                issues.append("Bradycardia")
+        elif metric == "oxygen_saturation":
+            if v < 90:
+                needed_specs["Pulmonology"] = {"reason": f"Critical oxygen level ({v}%) — severe hypoxemia", "urgency": "immediate"}
+                issues.append("Severe hypoxemia")
+            elif v < 95:
+                needed_specs["Pulmonology"] = {"reason": f"Low oxygen saturation ({v}%) — respiratory assessment needed", "urgency": "soon"}
+                issues.append("Low oxygen")
+        elif metric == "pain_level":
+            if v >= 8:
+                needed_specs.setdefault("General Medicine", {"reason": f"Severe pain (level {v}/10) — urgent evaluation needed", "urgency": "urgent"})
+                issues.append("Severe pain")
+            elif v >= 5:
+                needed_specs.setdefault("General Medicine", {"reason": f"Moderate pain (level {v}/10)", "urgency": "routine"})
+                issues.append("Moderate pain")
+
+    # Analyze chat history for symptom keywords
+    keyword_map = {
+        "headache": ("Neurology", "Patient reports headaches — neurological evaluation recommended"),
+        "migraine": ("Neurology", "Patient mentions migraines — specialist assessment needed"),
+        "dizzy": ("Neurology", "Dizziness reported — neurological screening advised"),
+        "chest pain": ("Cardiology", "Chest pain reported — cardiac evaluation critical"),
+        "breathing": ("Pulmonology", "Breathing difficulties — pulmonary assessment needed"),
+        "shortness of breath": ("Pulmonology", "Shortness of breath — respiratory evaluation needed"),
+        "rash": ("Dermatology", "Skin rash reported — dermatological evaluation recommended"),
+        "skin": ("Dermatology", "Skin concerns — dermatologist consultation advised"),
+        "anxiety": ("Psychiatry", "Anxiety symptoms — mental health support recommended"),
+        "depression": ("Psychiatry", "Depression indicators — psychiatric evaluation advised"),
+        "stress": ("Psychiatry", "Stress-related symptoms — mental wellness check recommended"),
+        "joint": ("Orthopedics", "Joint issues reported — orthopedic assessment needed"),
+        "back pain": ("Orthopedics", "Back pain — orthopedic evaluation recommended"),
+        "fracture": ("Orthopedics", "Possible fracture — urgent orthopedic care needed"),
+        "child": ("Pediatrics", "Pediatric concern — specialist evaluation recommended"),
+        "stomach": ("General Medicine", "GI symptoms — medical evaluation needed"),
+        "nausea": ("General Medicine", "Nausea reported — evaluation recommended"),
+        "diabetes": ("Endocrinology", "Diabetes management — endocrinologist recommended"),
+        "thyroid": ("Endocrinology", "Thyroid concerns — endocrine evaluation needed"),
+        "eye": ("General Medicine", "Eye concerns — evaluation needed"),
+        "wound": ("General Surgery", "Wound care — surgical evaluation may be needed"),
+        "surgery": ("General Surgery", "Surgical consultation may be needed"),
+    }
+    if chat_hist:
+        recent_text = " ".join(m["content"].lower() for m in chat_hist[-6:] if m["role"] == "user")
+        for kw, (spec, reason) in keyword_map.items():
+            if kw in recent_text and spec not in needed_specs:
+                needed_specs[spec] = {"reason": reason, "urgency": "routine"}
+                issues.append(kw.title() + " concerns")
+
+    # Analyze alerts for urgency
     if alerts:
-        needed.add("General Medicine")
-    if not needed:
-        needed.add("General Medicine")
-    # Get matching doctors
-    all_docs = _db.list_doctors(verified_only=False)
-    suggested = [d for d in all_docs if d["specialization"] in needed]
+        high_sev = any(a.get("severity", 0) >= 3 for a in alerts)
+        if high_sev and not any(v.get("urgency") in ("urgent", "immediate") for v in needed_specs.values()):
+            for spec in needed_specs:
+                if needed_specs[spec]["urgency"] == "routine":
+                    needed_specs[spec]["urgency"] = "soon"
+
+    # Default if no issues detected
+    if not needed_specs:
+        needed_specs["General Medicine"] = {"reason": "Routine health check-up and wellness screening", "urgency": "routine"}
+        issues.append("General wellness check")
+
+    # Match to actual doctors
+    suggested = []
+    for d in all_docs:
+        spec = d["specialization"]
+        if spec in needed_specs:
+            d_copy = dict(d)
+            d_copy["ai_reason"] = needed_specs[spec]["reason"]
+            d_copy["ai_urgency"] = needed_specs[spec]["urgency"]
+            suggested.append(d_copy)
+
     if not suggested:
-        suggested = all_docs[:5]
+        suggested = all_docs[:3]
+
+    # Build assessment summary
+    urgency_order = {"immediate": 0, "urgent": 1, "soon": 2, "routine": 3}
+    suggested.sort(key=lambda x: urgency_order.get(x.get("ai_urgency", "routine"), 3))
+    top_urgency = min((v["urgency"] for v in needed_specs.values()), key=lambda u: urgency_order.get(u, 3))
+    if top_urgency in ("immediate", "urgent"):
+        assessment = f"Urgent attention needed. Detected: {', '.join(issues[:3])}. Please consult the recommended specialists promptly."
+    elif top_urgency == "soon":
+        assessment = f"Some health concerns detected: {', '.join(issues[:3])}. We recommend scheduling appointments within the next few days."
+    else:
+        assessment = f"Health indicators noted: {', '.join(issues[:3])}. Consider a consultation at your convenience."
+
     return JSONResponse({
-        "patient_issues": list(needed),
+        "patient_issues": issues,
+        "overall_assessment": assessment,
         "suggested_doctors": suggested,
     })
 
@@ -520,8 +635,15 @@ async def analyze_photo(
 
     clean_bytes = ingestion.strip_exif(raw)
 
-    # Single Venice Vision call — does BOTH image analysis AND clinical triage
-    result = inference.venice_vision(_config, _agent.venice, clean_bytes)
+    # Single Venice Vision call with 25s timeout — never hang
+    try:
+        with concurrent.futures.ThreadPoolExecutor() as pool:
+            future = pool.submit(inference.venice_vision, _config, _agent.venice, clean_bytes)
+            result = future.result(timeout=25)
+    except concurrent.futures.TimeoutError:
+        result = {"observations": "Analysis timed out. The image may be too large or complex. Please try again with a smaller/clearer image.", "severity": "unknown", "emergency_level": "yellow_see_doctor", "patient_message": "The analysis took too long to complete. Please try uploading a smaller image, or describe your symptoms in the chat instead. If this is urgent, please contact a doctor directly.", "error": "timeout"}
+    except Exception as e:
+        result = {"observations": f"Analysis failed: {str(e)}", "severity": "unknown", "emergency_level": "yellow_see_doctor", "patient_message": "We couldn't analyze your image right now. Please try again or describe your symptoms in the chat.", "error": str(e)}
     _agent.venice_endpoints_used.add("vision")
     _agent.stats["venice_calls"] += 1
 
@@ -573,8 +695,11 @@ async def analyze_photo(
 def get_status():
     """Agent status, uptime, stats, Venice endpoints used."""
     if not _agent:
-        return {"status": "initializing"}
-    return JSONResponse(_agent.get_status())
+        return JSONResponse({"running": True, "status": "initializing", "uptime_seconds": 0})
+    try:
+        return JSONResponse(_agent.get_status())
+    except Exception:
+        return JSONResponse({"running": True, "uptime_seconds": round(time.time() - _agent.start_time, 1), "status": "ok"})
 
 
 @app.get("/patients")

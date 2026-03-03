@@ -53,8 +53,8 @@ class MemoryManager:
     def load_context(self, patient_id: str, days: int = 7) -> dict:
         vitals = self.db.get_vitals(patient_id, days=days)
         latest = self.db.get_latest_vitals(patient_id)
-        logs = self.db.get_logs(patient_id, limit=10)
-        alerts = self.db.get_alerts(patient_id, limit=5)
+        logs = self.db.get_logs(patient_id, limit=15)
+        alerts = self.db.get_alerts(patient_id, limit=10)
         return {
             "vitals_history": vitals,
             "latest_vitals": latest,
@@ -63,28 +63,66 @@ class MemoryManager:
         }
 
     def format_for_ai(self, context: dict) -> str:
-        """Format context as text for AkashML. No patient names — only metrics."""
+        """Format context as rich text for AI. No patient names — only metrics and clinical data."""
         parts = []
         latest = context.get("latest_vitals", {})
         if latest:
-            parts.append("Current vitals: " + ", ".join(
-                f"{k}={v['value']}{v.get('unit','')}" for k, v in latest.items()
-            ))
+            vital_lines = []
+            for k, v in latest.items():
+                val = v['value']
+                unit = v.get('unit', '')
+                status = ""
+                if k == "bp_systolic":
+                    if val >= 180: status = " [CRITICAL - hypertensive crisis]"
+                    elif val >= 140: status = " [HIGH - stage 2 hypertension]"
+                    elif val >= 130: status = " [ELEVATED]"
+                    else: status = " [normal]"
+                elif k == "bp_diastolic":
+                    if val >= 120: status = " [CRITICAL]"
+                    elif val >= 90: status = " [HIGH]"
+                    else: status = " [normal]"
+                elif k == "glucose":
+                    if val >= 250: status = " [CRITICAL - dangerously high]"
+                    elif val >= 180: status = " [HIGH]"
+                    elif val < 70: status = " [LOW - hypoglycemia risk]"
+                    else: status = " [normal]"
+                elif k == "temperature":
+                    if val >= 103: status = " [HIGH FEVER]"
+                    elif val >= 100.4: status = " [FEVER]"
+                    else: status = " [normal]"
+                elif k == "heart_rate":
+                    if val >= 100: status = " [TACHYCARDIA]"
+                    elif val < 60: status = " [BRADYCARDIA]"
+                    else: status = " [normal]"
+                elif k == "oxygen_saturation":
+                    if val < 90: status = " [CRITICAL - severe hypoxemia]"
+                    elif val < 95: status = " [LOW]"
+                    else: status = " [normal]"
+                elif k == "pain_level":
+                    if val >= 8: status = " [SEVERE]"
+                    elif val >= 5: status = " [MODERATE]"
+                    else: status = " [MILD]"
+                vital_lines.append(f"  {k}: {val}{unit}{status}")
+            parts.append("CURRENT VITALS:\n" + "\n".join(vital_lines))
+
         history = context.get("vitals_history", [])
         if history:
-            parts.append(f"Vitals history ({len(history)} readings last 7 days)")
-            for v in history[:5]:
-                parts.append(f"  {v['metric_type']}={v['value']} at {v['timestamp']}")
+            parts.append(f"\nVITALS HISTORY ({len(history)} readings, last 7 days):")
+            for v in history[:10]:
+                parts.append(f"  {v['metric_type']}={v['value']}{v.get('unit','')} at {v['timestamp']}")
+
         logs = context.get("recent_logs", [])
         if logs:
-            parts.append(f"Recent analysis ({len(logs)} logs):")
-            for l in logs[:3]:
-                parts.append(f"  [{l['decision']}] {l['reason'][:80]}")
+            parts.append(f"\nAI ANALYSIS HISTORY ({len(logs)} entries):")
+            for l in logs[:5]:
+                parts.append(f"  [{l['decision'].upper()}] {l.get('summary', l.get('reason', ''))[:150]}")
+
         alerts = context.get("recent_alerts", [])
         if alerts:
-            parts.append(f"Recent alerts ({len(alerts)}):")
-            for a in alerts[:3]:
-                parts.append(f"  [sev{a['severity']}] {a['message'][:80]}")
+            parts.append(f"\nALERTS ({len(alerts)} total):")
+            for a in alerts[:5]:
+                parts.append(f"  [SEVERITY {a['severity']}] {a['message'][:150]}")
+
         return "\n".join(parts) if parts else "No patient data available yet."
 
     def format_vitals_summary(self, vitals: list[dict]) -> str:

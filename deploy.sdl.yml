@@ -3,7 +3,7 @@ version: "2.0"
 
 services:
   healthguard:
-    image: karthiksai109/healthguard:v2.7
+    image: karthiksai109/healthguard:v3.4
     env:
       - VENICE_API_KEY=
       - AKASHML_API_KEY=
@@ -30,11 +30,7 @@ profiles:
         memory:
           size: 8Gi
         storage:
-          - size: 10Gi
-            attributes:
-              persistent: true
-              class: beta3
-            name: data
+          size: 10Gi
 
   placement:
     dcloud:
