@@ -6,9 +6,11 @@ Venice processes and forgets. Zero retention is architectural.
 AkashML receives structured text only — never raw photos, audio, or patient names.
 """
 import base64
+import io
 import json
 import httpx
 import structlog
+from PIL import Image
 from openai import OpenAI
 from app.core.config import AppConfig
 
@@ -58,23 +60,37 @@ VISION_SCHEMA_PROMPT = """Medical image analyst. Return ONLY JSON:
 "warning_signs":["sign1","sign2"]}"""
 
 
+def _compress_image(image_bytes: bytes, max_dim: int = 1024, quality: int = 85) -> bytes:
+    """Resize and compress image to JPEG for fast upload. Max 1024px, ~200-500KB."""
+    try:
+        img = Image.open(io.BytesIO(image_bytes))
+        if img.mode in ('RGBA', 'P'):
+            img = img.convert('RGB')
+        w, h = img.size
+        if max(w, h) > max_dim:
+            ratio = max_dim / max(w, h)
+            img = img.resize((int(w * ratio), int(h * ratio)), Image.LANCZOS)
+        buf = io.BytesIO()
+        img.save(buf, format='JPEG', quality=quality, optimize=True)
+        logger.info("image_compressed", original=len(image_bytes), compressed=buf.tell(), size=f"{img.size[0]}x{img.size[1]}")
+        return buf.getvalue()
+    except Exception as e:
+        logger.warning("image_compress_failed", error=str(e))
+        return image_bytes
+
+
 def venice_vision(config: AppConfig, client: OpenAI, image_bytes: bytes) -> dict:
     """Analyze patient health image using Venice Vision.
     Raw image deleted by Venice after analysis — zero retention.
     Returns structured JSON with clinical observations.
     """
     try:
-        b64 = base64.b64encode(image_bytes).decode("utf-8")
-        # Auto-detect MIME type from magic bytes
+        # Compress to JPEG, max 1024px — keeps base64 under 1MB
+        compressed = _compress_image(image_bytes)
+        b64 = base64.b64encode(compressed).decode("utf-8")
         mime = "image/jpeg"
-        if image_bytes[:8] == b'\x89PNG\r\n\x1a\n':
-            mime = "image/png"
-        elif image_bytes[:4] == b'GIF8':
-            mime = "image/gif"
-        elif image_bytes[:4] == b'RIFF' and image_bytes[8:12] == b'WEBP':
-            mime = "image/webp"
         resp = client.chat.completions.create(
-            model=config.venice.vision_model,
+            model="mistral-31-24b",
             messages=[
                 {"role": "system", "content": VISION_SCHEMA_PROMPT},
                 {
@@ -85,20 +101,44 @@ def venice_vision(config: AppConfig, client: OpenAI, image_bytes: bytes) -> dict
                     ],
                 },
             ],
-            max_tokens=400,
+            max_tokens=800,
             temperature=0.2,
         )
         raw = resp.choices[0].message.content.strip()
-        # Extract JSON from response
+        # Extract JSON from response — handle code blocks, leading text, whitespace
         if "```" in raw:
             raw = raw.split("```")[1]
             if raw.startswith("json"):
                 raw = raw[4:]
+            raw = raw.strip()
+        # Find first { and last } to extract JSON object
+        start = raw.find("{")
+        end = raw.rfind("}")
+        if start != -1 and end != -1:
+            raw = raw[start:end + 1]
         result = json.loads(raw)
         logger.info("venice_vision_ok", image_type=result.get("image_type"), confidence=result.get("confidence"), endpoint="vision")
         return result
     except json.JSONDecodeError:
         logger.warning("venice_vision_json_fail", raw=raw[:200] if raw else "")
+        # Try to salvage truncated JSON by closing open braces
+        try:
+            start = raw.find("{")
+            if start != -1:
+                fragment = raw[start:]
+                # Count open/close braces and brackets to close them
+                opens_b = fragment.count("{") - fragment.count("}")
+                opens_a = fragment.count("[") - fragment.count("]")
+                fragment = fragment.rstrip(", \n\r\t")
+                # Remove trailing incomplete key-value
+                if fragment.endswith('"') and not fragment.endswith('"}'):
+                    last_comma = fragment.rfind(',')
+                    if last_comma > 0:
+                        fragment = fragment[:last_comma]
+                fragment += "]" * max(0, opens_a) + "}" * max(0, opens_b)
+                return json.loads(fragment)
+        except Exception:
+            pass
         return {"observations": raw if raw else "analysis failed", "confidence": 0.0}
     except Exception as e:
         logger.error("venice_vision_fail", error=str(e))
